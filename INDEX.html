@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAN→WiFi Bridge — Главная</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;background:#0a0a0a;color:#e5e5e5;padding:0;font-size:14px;line-height:1.55;font-weight:400}
+:root{--bg:#0a0a0a;--panel:#0d0d0d;--panel2:#141414;--line:#262626;--muted:#737373;--muted2:#525252;--text:#e5e5e5;--text2:#d4d4d4;--white:#fafafa;--g:#22c55e;--r:#ef4444;--b:#3b82f6}
+.nav{display:flex;background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;position:sticky;top:0;z-index:100}
+.nav a{color:var(--muted);text-decoration:none;padding:14px 20px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;position:relative}
+.nav a:hover{color:var(--white)}
+.nav a.active{color:var(--white)}
+.nav a.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--white)}
+.content{padding:32px 24px;max-width:1200px;margin:0 auto}
+h1{font-weight:500;text-align:center;color:var(--white);margin:0 0 8px;font-size:1.15rem;letter-spacing:.10em;text-transform:uppercase}
+h2{font-weight:500;color:var(--white);margin:48px 0 16px;font-size:.98rem;letter-spacing:.12em;text-transform:uppercase;position:relative;padding-bottom:10px}
+h2::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--line)}
+h3{font-weight:600;color:var(--text2);margin:24px 0 10px;font-size:.9rem;letter-spacing:.04em}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:32px;font-size:12px;letter-spacing:.03em}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{background:var(--panel2);color:var(--text2);padding:10px 14px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line)}
+td{padding:10px 14px;border:1px solid var(--line);font-size:13px;color:var(--text2)}
+tr:hover td{background:var(--panel2)}
+.warn,.ok,.info,.danger{position:relative;background:var(--panel2);border:1px solid var(--line);padding:12px 16px 12px 22px;margin:16px 0;font-size:13px;color:var(--text2)}
+.warn::before,.ok::before,.info::before,.danger::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+.ok::before{background:var(--g)}
+.info::before{background:var(--b)}
+.danger::before{background:var(--r)}
+.warn::before{background:#f59e0b}
+code{background:var(--panel2);padding:2px 6px;font-size:12px;border:1px solid var(--line);color:var(--white)}
+pre{background:var(--panel);padding:16px;font-size:12px;line-height:1.65;border:1px solid var(--line);overflow-x:auto;color:var(--text2)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px}
+.card h3{margin-top:0}
+.pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin:16px 0}
+.page-link{display:block;background:var(--panel);border:1px solid var(--line);padding:16px;text-decoration:none;transition:background .15s}
+.page-link:hover{background:var(--panel2)}
+.page-link h3{color:var(--white);margin:0 0 6px}
+.page-link p{color:var(--muted);font-size:12px;margin:0;line-height:1.45}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html" class="active">Главная</a>
+  <a href="wiring.html">Подключение</a>
+  <a href="signals.html">Сигналы</a>
+  <a href="can_frames.html">CAN фреймы</a>
+  <a href="freertos.html">FreeRTOS</a>
+  <a href="howto.html">HOWTO</a>
+</div>
+<div class="content">
+<h1>CAN &rarr; WiFi Bridge</h1>
+<p class="subtitle">ESP32-S3 TWAI + TJA1050 &rarr; WiFi &rarr; SavvyCAN &nbsp;|&nbsp; ESP-IDF v5.3.1 &nbsp;|&nbsp; v2.0 TWAI build 420</p>
+
+<!-- ====== OVERVIEW ====== -->
+<h2>Обзор проекта</h2>
+<p>Устройство читает CAN-шину автомобиля через встроенный контроллер <strong>TWAI</strong> (Two-Wire Automotive Interface) ESP32-S3 и внешний трансивер <strong>TJA1050</strong>, затем передаёт фреймы по WiFi на любой клиент, поддерживающий протокол GVRET: компьютер с SavvyCAN, телефон с Telnet-клиентом, или любой TCP-клиент.</p>
+<p>Связь <strong>двусторонняя</strong>: клиент может не только получать CAN-фреймы, но и отправлять их в шину, а также менять параметры CAN на лету.</p>
+
+<div class="ok"><strong>Преимущества TWAI:</strong> Встроенный аппаратный CAN контроллер ESP32-S3. Всего 2 провода (TX/RX) вместо 4 (SPI). Аппаратный FIFO из 32 фреймов. Нет зависимости от внешнего контроллера.</div>
+
+<!-- ====== HARDWARE CONFIG ====== -->
+<h2>Аппаратная конфигурация</h2>
+<table>
+<tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>Целевой чип</td><td>ESP32-S3-N16R8</td></tr>
+<tr><td>CAN контроллер</td><td>TWAI (встроенный в ESP32-S3)</td></tr>
+<tr><td>CAN трансивер</td><td>TJA1050 (standalone модуль, 5V)</td></tr>
+<tr><td style="color:#66bb6a">TWAI TX</td><td><strong>GPIO 4</strong> (ESP32 &rarr; TJA1050, напрямую)</td></tr>
+<tr><td style="color:#00e5ff">TWAI RX</td><td><strong>GPIO 5</strong> (TJA1050 &rarr; ESP32, через делитель 1к/2к)</td></tr>
+<tr><td>CAN скорость</td><td>500 Кбит/с (по умолчанию)</td></tr>
+<tr><td>RX буфер TWAI</td><td>32 фрейма (аппаратный FIFO)</td></tr>
+<tr><td>LED индикатор</td><td>GPIO 2</td></tr>
+<tr><td>WiFi режим</td><td>SoftAP (точка доступа)</td></tr>
+<tr><td>SSID</td><td><code>AVTOTOR_CAN</code></td></tr>
+<tr><td>Пароль WiFi</td><td><code>mypassword</code></td></tr>
+<tr><td>IP адрес ESP32</td><td><code>192.168.4.1</code></td></tr>
+<tr><td>TCP порт (GVRET)</td><td><code>23</code></td></tr>
+<tr><td>UDP broadcast</td><td><code>17222</code> (авто-обнаружение)</td></tr>
+<tr><td>UART (отладка)</td><td>UART0, 115200 бод</td></tr>
+</table>
+<p>Все пины и названия сети задаются в <code>main/config_idf.h</code>.</p>
+
+<!-- ====== PROJECT STRUCTURE ====== -->
+<h2>Структура проекта</h2>
+<pre>can_wifi/
+├── CMakeLists.txt              <span style="color:#888">&mdash; корневой проект ESP-IDF</span>
+├── sdkconfig.defaults          <span style="color:#888">&mdash; настройки по умолчанию</span>
+└── main/
+    ├── CMakeLists.txt          <span style="color:#888">&mdash; список компилируемых исходников</span>
+    ├── <span style="color:#ff9800">main.cpp</span>                <span style="color:#888">&mdash; точка входа app_main(), главный цикл</span>
+    ├── <span style="color:#ffab40">config_idf.h / .c</span>       <span style="color:#888">&mdash; EEPROMSettings / SystemSettings, глобальные переменные</span>
+    ├── <span style="color:#66bb6a">esp32_can_idf.h / .cpp</span>  <span style="color:#888">&mdash; TWAI CAN драйвер (twai_driver_install/start/receive/transmit)</span>
+    ├── <span style="color:#66bb6a">can_manager.h / .cpp</span>    <span style="color:#888">&mdash; чтение CAN-фреймов, маршрутизация на WiFi или Serial</span>
+    ├── <span style="color:#42a5f5">gvret_comm.h / .cpp</span>     <span style="color:#888">&mdash; протокол GVRET: кодирование фреймов, разбор входящих команд</span>
+    ├── <span style="color:#ab47bc">wifi_manager_idf.h/.cpp</span> <span style="color:#888">&mdash; WiFi SoftAP, TCP-сервер :23, UDP broadcast :17222</span>
+    ├── uart_serial.h / .cpp    <span style="color:#888">&mdash; обёртка UART0 (115200 бод)</span>
+    ├── logger_idf.h / .cpp     <span style="color:#888">&mdash; логирование через UART</span>
+    ├── sys_io_idf.h / .cpp     <span style="color:#888">&mdash; управление LED</span>
+    └── serial_console_idf.h/.cpp <span style="color:#888">&mdash; текстовая консоль UART</span></pre>
+
+<!-- ====== ROUTING ====== -->
+<h2>Маршрутизация CAN-фреймов</h2>
+<pre>CAN-фрейм получен из TWAI FIFO (<span style="color:#66bb6a">twai_receive</span>)
+        │
+        ├── <span style="color:#ab47bc">isWifiActive == true</span>  (TCP клиент подключён и прислал данные)
+        │       └─&blacktriangleright; <span style="color:#42a5f5">wifiGVRET.sendFrameToBuffer()</span>
+        │               └─&blacktriangleright; отправляется TCP клиенту при flush (каждые 20 мс)
+        │
+        └── <span style="color:#78909c">isWifiActive == false</span> (никто не подключён)
+                └─&blacktriangleright; serialGVRET.sendFrameToBuffer()
+                        └─&blacktriangleright; буфер очищается без отправки</pre>
+
+<div class="info"><code>isWifiActive</code> становится <code>true</code> когда TCP-клиент первый раз присылает любые данные. SavvyCAN делает это автоматически при подключении (отправляет <code>0xE7</code>).</div>
+
+<!-- ====== BUILD ====== -->
+<h2>Сборка и прошивка</h2>
+<div class="two-col">
+<div>
+<h3>Требования</h3>
+<table>
+<tr><td>Фреймворк</td><td>ESP-IDF v5.0+ (рекомендуется v5.3.1)</td></tr>
+<tr><td>Целевая плата</td><td>ESP32-S3</td></tr>
+<tr><td>ОС</td><td>Windows / Linux / macOS</td></tr>
+</table>
+</div>
+<div>
+<h3>Команды</h3>
+<pre><span style="color:#888"># Установить цель (один раз)</span>
+idf.py set-target esp32s3
+
+<span style="color:#888"># Сборка</span>
+idf.py build
+
+<span style="color:#888"># Прошивка (заменить COMX на реальный порт)</span>
+idf.py -p COM<span style="color:#ffab40">X</span> flash
+
+<span style="color:#888"># Монитор (выход: Ctrl+])</span>
+idf.py -p COM<span style="color:#ffab40">X</span> monitor
+
+<span style="color:#888"># Всё одной командой</span>
+idf.py -p COM<span style="color:#ffab40">X</span> flash monitor</pre>
+</div>
+</div>
+
+<!-- ====== PHONE ====== -->
+<h2>Подключение с телефона</h2>
+
+<h3>Шаг 1 &mdash; Подключиться к WiFi</h3>
+<table>
+<tr><td>Сеть</td><td><code>AVTOTOR_CAN</code></td></tr>
+<tr><td>Пароль</td><td><code>mypassword</code></td></tr>
+<tr><td>IP ESP32</td><td><code>192.168.4.1</code></td></tr>
+<tr><td>Порт</td><td><code>23</code></td></tr>
+</table>
+
+<h3>Шаг 2 &mdash; Установить TCP / Telnet клиент</h3>
+<div class="two-col">
+<div class="card">
+<h3>Android</h3>
+<table>
+<tr><td style="color:#66bb6a;font-weight:bold">Serial WiFi Terminal</td><td>Рекомендуется &mdash; есть режим TCP</td></tr>
+<tr><td>Telnet / SSH Client</td><td>by Cyphon</td></tr>
+<tr><td>JuiceSSH</td><td>Поддерживает Telnet</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>iOS</h3>
+<table>
+<tr><td style="color:#66bb6a;font-weight:bold">WebSSH</td><td>Поддерживает Telnet</td></tr>
+<tr><td>Serverauditor / Termius</td><td>SSH + Telnet</td></tr>
+</table>
+</div>
+</div>
+
+<h3>Шаг 3 &mdash; Подключиться</h3>
+<p>Тип: <strong>TCP</strong> или <strong>Telnet</strong>. Хост: <code>192.168.4.1</code>, Порт: <code>23</code>.</p>
+
+<h3>Что увидите на экране (текстовый режим)</h3>
+<pre>1234,1A0,false,Rx,0,8,FF,00,1E,3C,00,00,00,00
+5678,0C8,false,Rx,0,4,12,34,56,78
+9012,18FF1234,true,Rx,0,8,AA,BB,CC,DD,EE,FF,00,11</pre>
+
+<div class="info"><strong>Совет:</strong> Если хотите бинарный режим &mdash; отправьте байт <code>0xE7</code>. Для телефона лучше текстовый режим.</div>
+
+<!-- ====== TEXT FORMAT ====== -->
+<h2>Текстовый формат вывода</h2>
+<pre>&lt;время_мкс&gt;,&lt;ID_hex&gt;,&lt;extended&gt;,Rx,&lt;шина&gt;,&lt;длина&gt;,&lt;байт0&gt;,...,&lt;байтN&gt;</pre>
+<table>
+<tr><th>Поле</th><th>Пример</th><th>Описание</th></tr>
+<tr><td>время</td><td><code>1234</code></td><td>Метка времени в микросекундах</td></tr>
+<tr><td>ID</td><td><code>1A0</code></td><td>Идентификатор CAN-фрейма (HEX)</td></tr>
+<tr><td>extended</td><td><code>false/true</code></td><td>Стандартный (11 бит) / расширенный (29 бит)</td></tr>
+<tr><td>Rx</td><td><code>Rx</code></td><td>Всегда Rx (принято)</td></tr>
+<tr><td>шина</td><td><code>0</code></td><td>Номер CAN шины (0 = CAN0)</td></tr>
+<tr><td>длина</td><td><code>8</code></td><td>Количество байт данных</td></tr>
+<tr><td>байты</td><td><code>FF,00,...</code></td><td>Данные фрейма в HEX</td></tr>
+</table>
+
+<!-- ====== SAVVYCAN ====== -->
+<h2>Подключение через SavvyCAN</h2>
+<table>
+<tr><th>Шаг</th><th>Действие</th></tr>
+<tr><td>1</td><td>Подключить компьютер к WiFi <code>AVTOTOR_CAN</code> / <code>mypassword</code></td></tr>
+<tr><td>2</td><td>SavvyCAN &rarr; <strong>Connection</strong> &rarr; <strong>Open Connection Window</strong></td></tr>
+<tr><td>3</td><td>Тип: <strong>Network Connection (GVRET)</strong></td></tr>
+<tr><td>4</td><td>IP: <code>192.168.4.1</code>, Port: <code>23</code></td></tr>
+<tr><td>5</td><td><strong>Create New Connection</strong></td></tr>
+<tr><td>6</td><td>Фреймы начнут появляться автоматически</td></tr>
+</table>
+<p>SavvyCAN автоматически: отправит <code>0xE7</code> (binary mode), синхронизирует время, запросит параметры шин и начнёт получать фреймы.</p>
+
+<!-- ====== TWO-WAY ====== -->
+<h2>Двусторонняя связь (GVRET команды)</h2>
+<div class="info"><strong>GVRET</strong> (Generalized Vehicle Reverse Engineering Tool) &mdash; бинарный протокол для передачи CAN-фреймов и управления устройством. Все команды начинаются с байта <code>0xF1</code>.</div>
+
+<table>
+<tr><th>Команда</th><th>Код</th><th>Направление</th><th>Описание</th></tr>
+<tr><td><code>0xE7</code></td><td>&mdash;</td><td>Host &rarr; ESP32</td><td>Переключение в <strong>бинарный режим</strong> GVRET</td></tr>
+<tr><td style="color:#00e5ff;font-weight:bold">BUILD_CAN_FRAME</td><td><code>F1 00</code></td><td>Host &rarr; ESP32</td><td><strong>Отправить CAN-фрейм в шину</strong> через TWAI</td></tr>
+<tr><td>CAN_FRAME_DATA</td><td><code>F1 00</code></td><td>ESP32 &rarr; Host</td><td>Принятый CAN-фрейм</td></tr>
+<tr><td>TIME_SYNC</td><td><code>F1 01</code></td><td>Host &harr; ESP32</td><td>Синхронизация времени (мкс)</td></tr>
+<tr><td style="color:#ff9800">SETUP_CANBUS</td><td><code>F1 05</code></td><td>Host &rarr; ESP32</td><td><strong>Изменить скорость / режим CAN</strong></td></tr>
+<tr><td>GET_CANBUS_PARAMS</td><td><code>F1 06</code></td><td>Host &rarr; ESP32</td><td>Запрос текущих параметров CAN</td></tr>
+<tr><td>GET_DEV_INFO</td><td><code>F1 07</code></td><td>Host &rarr; ESP32</td><td>Версия прошивки и номер билда</td></tr>
+<tr><td>KEEPALIVE</td><td><code>F1 09</code></td><td>Host &rarr; ESP32</td><td>Проверка связи (ответ: <code>F1 09 DE AD</code>)</td></tr>
+<tr><td>ECHO_CAN_FRAME</td><td><code>F1 0B</code></td><td>Host &rarr; ESP32</td><td>Зеркалирование фрейма</td></tr>
+<tr><td>GET_NUMBUSES</td><td><code>F1 0C</code></td><td>Host &rarr; ESP32</td><td>Количество CAN шин (ответ: 1)</td></tr>
+<tr><td>GET_EXT_BUSES</td><td><code>F1 0D</code></td><td>Host &rarr; ESP32</td><td>Параметры дополнительных шин</td></tr>
+<tr><td>SET_EXT_BUSES</td><td><code>F1 0E</code></td><td>Host &rarr; ESP32</td><td>Настроить дополнительные шины</td></tr>
+</table>
+
+<div class="warn"><strong>Listen Only режим:</strong> по умолчанию <code>CAN0ListenOnly = false</code> &mdash; ESP32 может передавать в шину. Для безопасного мониторинга включите Listen Only через команду <code>F1 05</code> или в <code>config_idf.h</code>.</div>
+
+<!-- ====== THROUGHPUT ====== -->
+<h2>Практическая пропускная способность</h2>
+<table>
+<tr><th>Скорость CAN</th><th>Макс. фреймов/с</th><th>Полезные данные</th></tr>
+<tr><td>50 Кбит/с</td><td>~380</td><td>~3 КБ/с</td></tr>
+<tr><td>100 Кбит/с</td><td>~760</td><td>~6 КБ/с</td></tr>
+<tr><td>125 Кбит/с</td><td>~950</td><td>~7.5 КБ/с</td></tr>
+<tr><td>250 Кбит/с</td><td>~1 900</td><td>~15 КБ/с</td></tr>
+<tr><td style="color:#00e5ff;font-weight:bold">500 Кбит/с</td><td style="color:#00e5ff;font-weight:bold">~3 800</td><td style="color:#00e5ff;font-weight:bold">~30 КБ/с</td></tr>
+<tr><td>1 Мбит/с</td><td>~7 600</td><td>~60 КБ/с</td></tr>
+</table>
+
+<div class="ok"><strong>TWAI RX FIFO = 32 фрейма.</strong> При 3800 фр/с это ~8 мс запаса. Главный цикл работает с тиком 1 мс &mdash; FIFO практически не заполняется. Пропускная способность WiFi (~5200 фр/с через TCP) тоже с запасом.</div>
+
+<!-- ====== LIMITATIONS ====== -->
+<h2>Ограничения</h2>
+<table>
+<tr><th>Параметр</th><th>Значение / Ограничение</th></tr>
+<tr><td>Макс. скорость CAN</td><td>1 Мбит/с (~60 КБ/с данных)</td></tr>
+<tr><td>Рабочих CAN-шин</td><td><strong>1</strong> (CAN1 &mdash; заглушка)</td></tr>
+<tr><td>Макс. байт данных</td><td><strong>8</strong> (нет CAN FD)</td></tr>
+<tr><td>TWAI RX буфер</td><td>32 фрейма (rx_queue_len)</td></tr>
+<tr><td>Timeout TX CAN</td><td>10 мс, без повтора</td></tr>
+<tr><td>Фильтрация CAN</td><td>Отключена (accept all)</td></tr>
+<tr><td>WiFi-режим</td><td>SoftAP only (нет STA)</td></tr>
+<tr><td>Макс. WiFi-клиентов</td><td><strong>1</strong></td></tr>
+<tr><td>Буфер отправки WiFi</td><td>2048 байт</td></tr>
+<tr><td>Буфер приёма WiFi</td><td>64 байта за итерацию</td></tr>
+<tr><td>Flush интервал</td><td>20 мс (SER_BUFF_FLUSH_INTERVAL)</td></tr>
+<tr><td>UART скорость</td><td>115200 бод (фиксировано)</td></tr>
+</table>
+
+<!-- ====== BUGS ====== -->
+<h2>Исправленные ошибки</h2>
+
+<h3>Bug #1 &mdash; Crash при старте: отсутствовал nvs_flash_init()</h3>
+<p><strong>Файл:</strong> <code>main/main.cpp</code></p>
+<p>WiFi-стек ESP-IDF хранит RF-калибровки в NVS. Без <code>nvs_flash_init()</code> вызов <code>esp_wifi_init()</code> завершался паникой ядра (guru meditation error).</p>
+<pre><span style="color:#888">// Добавлено перед wifi_manager_setup():</span>
+esp_err_t nvs_ret = <span style="color:#66bb6a">nvs_flash_init()</span>;
+if (nvs_ret == ESP_ERR_NVS_NO_FREE_PAGES ||
+    nvs_ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    nvs_flash_erase();
+    nvs_flash_init();
+}</pre>
+
+<h3>Bug #2 &mdash; Зависание главного цикла: блокирующий accept()</h3>
+<p><strong>Файл:</strong> <code>main/wifi_manager_idf.cpp</code></p>
+<p>TCP listen-сокет был в блокирующем режиме. <code>accept()</code> блокировал весь поток &mdash; CAN-фреймы переставали читаться.</p>
+<pre><span style="color:#888">// Добавлено после открытия listen_fd:</span>
+<span style="color:#66bb6a">fcntl</span>(listen_fd, F_SETFL, fcntl(listen_fd, F_GETFL, 0) | <span style="color:#ffab40">O_NONBLOCK</span>);</pre>
+
+<h3>Bug #3 &mdash; Неверные метки времени: micros() делил на 1000</h3>
+<p><strong>Файл:</strong> <code>main/gvret_comm.cpp</code></p>
+<p><code>esp_timer_get_time()</code> уже возвращает микросекунды. Лишнее деление давало миллисекунды.</p>
+<pre><span style="color:#888">// Было:</span>   <span style="color:#ff5252">#define micros() ((uint32_t)(esp_timer_get_time() / 1000))</span>
+<span style="color:#888">// Стало:</span>  <span style="color:#66bb6a">#define micros() ((uint32_t)(esp_timer_get_time()))</span></pre>
+
+<!-- ====== TRANSPORT ====== -->
+<h2>Транспорт: TCP и UDP</h2>
+<div class="two-col">
+<div class="card">
+<h3>TCP &mdash; порт 23</h3>
+<p>Все CAN-данные и управляющие команды. TCP гарантирует доставку и порядок байт &mdash; критично для бинарного GVRET.</p>
+<pre>Клиент &rarr; 192.168.4.1:23 (TCP)
+  &uarr;&darr; CAN-фреймы (GVRET)
+  &uarr;&darr; Команды управления</pre>
+</div>
+<div class="card">
+<h3>UDP &mdash; порт 17222</h3>
+<p>Только авто-обнаружение. Каждую секунду ESP32 broadcast отправляет 4 байта:</p>
+<pre>ESP32 &rarr; 255.255.255.255:17222
+Payload: <span style="color:#ffab40">1C EF AC ED</span></pre>
+<p>SavvyCAN использует это для автоматического поиска устройства.</p>
+</div>
+</div>
+
+<!-- ====== DOC NAV ====== -->
+<h2>Навигация по документации</h2>
+<div class="pages">
+<a href="wiring.html" class="page-link">
+  <h3>Подключение</h3>
+  <p>Схема подключения ESP32 + TJA1050, делитель напряжения, распиновка OBD-II, питание, чеклист сборки</p>
+</a>
+<a href="signals.html" class="page-link">
+  <h3>Сигналы</h3>
+  <p>Физический уровень CAN, TWAI тайминги, уровни напряжений, GVRET протокол, путь данных</p>
+</a>
+<a href="can_frames.html" class="page-link">
+  <h3>CAN фреймы</h3>
+  <p>Структура CAN 2.0 фреймов, OBD-II PID, работа с SavvyCAN, фильтрация, ошибки CAN</p>
+</a>
+<a href="freertos.html" class="page-link">
+  <h3>FreeRTOS</h3>
+  <p>Архитектура задач, тайминг главного цикла, карта памяти, конфигурация, потенциальные улучшения</p>
+</a>
+</div>
+
+<!-- ====== FIRMWARE INFO ====== -->
+<h2>Информация о прошивке</h2>
+<table>
+<tr><td>Версия</td><td><code>ESP32_RET_SD v2.0 TWAI (Mar 2025)</code></td></tr>
+<tr><td>Build</td><td>420</td></tr>
+<tr><td>Платформа</td><td>ESP-IDF v5.3.1 (FreeRTOS)</td></tr>
+<tr><td>Целевой чип</td><td>ESP32-S3</td></tr>
+<tr><td>CAN драйвер</td><td>TWAI (встроенный, driver/twai.h)</td></tr>
+<tr><td>CAN трансивер</td><td>TJA1050 (standalone модуль)</td></tr>
+<tr><td>Flash</td><td>16 МБ (N16R8)</td></tr>
+<tr><td>PSRAM</td><td>8 МБ OPI</td></tr>
+<tr><td>Протокол</td><td>GVRET binary + ASCII</td></tr>
+<tr><td>Совместимость</td><td>SavvyCAN (Windows/Linux/Android)</td></tr>
+</table>
+
+</div>
+</body>
+</html>

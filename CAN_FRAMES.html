@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAN фреймы — CAN→WiFi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;background:#0a0a0a;color:#e5e5e5;padding:0;font-size:14px;line-height:1.55;font-weight:400}
+:root{--bg:#0a0a0a;--panel:#0d0d0d;--panel2:#141414;--line:#262626;--muted:#737373;--muted2:#525252;--text:#e5e5e5;--text2:#d4d4d4;--white:#fafafa;--g:#22c55e;--r:#ef4444;--b:#3b82f6}
+.nav{display:flex;background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;position:sticky;top:0;z-index:100}
+.nav a{color:var(--muted);text-decoration:none;padding:14px 20px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;position:relative}
+.nav a:hover{color:var(--white)}
+.nav a.active{color:var(--white)}
+.nav a.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--white)}
+.content{padding:32px 24px;max-width:1200px;margin:0 auto}
+h1{font-weight:500;text-align:center;color:var(--white);margin:0 0 8px;font-size:1.15rem;letter-spacing:.10em;text-transform:uppercase}
+h2{font-weight:500;color:var(--white);margin:48px 0 16px;font-size:.98rem;letter-spacing:.12em;text-transform:uppercase;position:relative;padding-bottom:10px}
+h2::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--line)}
+h3{font-weight:600;color:var(--text2);margin:24px 0 10px;font-size:.9rem;letter-spacing:.04em}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:32px;font-size:12px;letter-spacing:.03em}
+.diagram-wrap{background:var(--panel);padding:20px;margin:24px 0;overflow-x:auto;border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.diagram-wrap svg{display:block}
+.diagram-wrap svg rect{rx:0;ry:0}
+.diagram-wrap svg{font-family:'IBM Plex Mono',monospace}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{background:var(--panel2);color:var(--text2);padding:10px 14px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line)}
+td{padding:10px 14px;border:1px solid var(--line);font-size:13px;color:var(--text2)}
+tr:hover td{background:var(--panel2)}
+.warn,.ok,.info,.danger{position:relative;background:var(--panel2);border:1px solid var(--line);padding:12px 16px 12px 22px;margin:16px 0;font-size:13px;color:var(--text2)}
+.warn::before,.ok::before,.info::before,.danger::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+.ok::before{background:var(--g)}
+.info::before{background:var(--b)}
+.danger::before{background:var(--r)}
+.warn::before{background:#f59e0b}
+code{background:var(--panel2);padding:2px 6px;font-size:12px;border:1px solid var(--line);color:var(--white)}
+pre{background:var(--panel);padding:16px;font-size:12px;line-height:1.65;border:1px solid var(--line);overflow-x:auto;color:var(--text2)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px}
+.card h3{margin-top:0}
+.hex{font-family:'IBM Plex Mono',ui-monospace,monospace;color:#f59e0b}
+.tag{display:inline-block;padding:2px 8px;font-size:.8em;margin:2px;border:1px solid var(--line);background:var(--panel2);color:var(--text2)}
+.tag-req{border-color:var(--b);color:var(--b)}
+.tag-resp{border-color:var(--g);color:var(--g)}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Главная</a>
+  <a href="wiring.html">Подключение</a>
+  <a href="signals.html">Сигналы</a>
+  <a href="can_frames.html" class="active">CAN фреймы</a>
+  <a href="freertos.html">FreeRTOS</a>
+  <a href="howto.html">HOWTO</a>
+</div>
+<div class="content">
+<h1>CAN фреймы</h1>
+<p class="subtitle">Структура фреймов, OBD-II PID, работа с SavvyCAN</p>
+
+<!-- ====== CAN FRAME STRUCTURE ====== -->
+<h2>Структура CAN 2.0 фрейма</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 1000 180" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="1000" height="180" fill="#0d0d0d"/>
+
+  <!-- Standard Frame -->
+  <text x="20" y="30" fill="#00e5ff" font-size="12" font-weight="bold">Standard Frame (11-bit ID):</text>
+
+  <rect x="20" y="40" width="30" height="40" rx="3" fill="#ff980030" stroke="#ff9800" stroke-width="1"/>
+  <text x="35" y="55" text-anchor="middle" fill="#ffcc80" font-size="8">SOF</text>
+  <text x="35" y="68" text-anchor="middle" fill="#ff9800" font-size="7">1 бит</text>
+
+  <rect x="55" y="40" width="100" height="40" rx="3" fill="#00e5ff30" stroke="#00e5ff" stroke-width="1"/>
+  <text x="105" y="55" text-anchor="middle" fill="#80deea" font-size="9" font-weight="bold">ID (11 бит)</text>
+  <text x="105" y="68" text-anchor="middle" fill="#00e5ff" font-size="7">0x000 - 0x7FF</text>
+
+  <rect x="160" y="40" width="25" height="40" rx="3" fill="#78909c30" stroke="#78909c" stroke-width="1"/>
+  <text x="172" y="55" text-anchor="middle" fill="#b0bec5" font-size="7">RTR</text>
+  <text x="172" y="68" text-anchor="middle" fill="#78909c" font-size="7">1</text>
+
+  <rect x="190" y="40" width="25" height="40" rx="3" fill="#78909c30" stroke="#78909c" stroke-width="1"/>
+  <text x="202" y="55" text-anchor="middle" fill="#b0bec5" font-size="7">IDE</text>
+  <text x="202" y="68" text-anchor="middle" fill="#78909c" font-size="7">1</text>
+
+  <rect x="220" y="40" width="25" height="40" rx="3" fill="#78909c30" stroke="#78909c" stroke-width="1"/>
+  <text x="232" y="55" text-anchor="middle" fill="#b0bec5" font-size="7">r0</text>
+  <text x="232" y="68" text-anchor="middle" fill="#78909c" font-size="7">1</text>
+
+  <rect x="250" y="40" width="45" height="40" rx="3" fill="#ab47bc30" stroke="#ab47bc" stroke-width="1"/>
+  <text x="272" y="55" text-anchor="middle" fill="#ce93d8" font-size="9" font-weight="bold">DLC</text>
+  <text x="272" y="68" text-anchor="middle" fill="#ab47bc" font-size="7">4 бит (0-8)</text>
+
+  <rect x="300" y="40" width="280" height="40" rx="3" fill="#66bb6a30" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="440" y="55" text-anchor="middle" fill="#a5d6a7" font-size="11" font-weight="bold">DATA (0-8 байт)</text>
+  <text x="440" y="68" text-anchor="middle" fill="#66bb6a" font-size="8">DLC * 8 бит = до 64 бит</text>
+
+  <rect x="585" y="40" width="60" height="40" rx="3" fill="#ff525230" stroke="#ff5252" stroke-width="1"/>
+  <text x="615" y="55" text-anchor="middle" fill="#ff8a80" font-size="9">CRC</text>
+  <text x="615" y="68" text-anchor="middle" fill="#ff5252" font-size="7">15 бит + delim</text>
+
+  <rect x="650" y="40" width="30" height="40" rx="3" fill="#42a5f530" stroke="#42a5f5" stroke-width="1"/>
+  <text x="665" y="55" text-anchor="middle" fill="#90caf9" font-size="7">ACK</text>
+  <text x="665" y="68" text-anchor="middle" fill="#42a5f5" font-size="7">2</text>
+
+  <rect x="685" y="40" width="40" height="40" rx="3" fill="#78909c30" stroke="#78909c" stroke-width="1"/>
+  <text x="705" y="55" text-anchor="middle" fill="#b0bec5" font-size="7">EOF</text>
+  <text x="705" y="68" text-anchor="middle" fill="#78909c" font-size="7">7 бит</text>
+
+  <!-- Extended Frame -->
+  <text x="20" y="110" fill="#ffab40" font-size="12" font-weight="bold">Extended Frame (29-bit ID):</text>
+
+  <rect x="20" y="120" width="30" height="40" rx="3" fill="#ff980030" stroke="#ff9800" stroke-width="1"/>
+  <text x="35" y="135" text-anchor="middle" fill="#ffcc80" font-size="8">SOF</text>
+
+  <rect x="55" y="120" width="100" height="40" rx="3" fill="#00e5ff30" stroke="#00e5ff" stroke-width="1"/>
+  <text x="105" y="135" text-anchor="middle" fill="#80deea" font-size="9" font-weight="bold">ID-A (11)</text>
+
+  <rect x="160" y="120" width="25" height="40" rx="3" fill="#78909c30" stroke="#78909c" stroke-width="1"/>
+  <text x="172" y="135" text-anchor="middle" fill="#b0bec5" font-size="7">SRR</text>
+
+  <rect x="190" y="120" width="25" height="40" rx="3" fill="#ffab4030" stroke="#ffab40" stroke-width="1"/>
+  <text x="202" y="135" text-anchor="middle" fill="#ffe0b2" font-size="7">IDE</text>
+  <text x="202" y="148" text-anchor="middle" fill="#ffab40" font-size="7">=1</text>
+
+  <rect x="220" y="120" width="140" height="40" rx="3" fill="#ffab4030" stroke="#ffab40" stroke-width="1.5"/>
+  <text x="290" y="135" text-anchor="middle" fill="#ffe0b2" font-size="9" font-weight="bold">ID-B (18 бит)</text>
+  <text x="290" y="148" text-anchor="middle" fill="#ffab40" font-size="7">итого 29 бит ID</text>
+
+  <rect x="365" y="120" width="45" height="40" rx="3" fill="#ab47bc30" stroke="#ab47bc" stroke-width="1"/>
+  <text x="387" y="135" text-anchor="middle" fill="#ce93d8" font-size="9">DLC</text>
+
+  <rect x="415" y="120" width="220" height="40" rx="3" fill="#66bb6a30" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="525" y="135" text-anchor="middle" fill="#a5d6a7" font-size="11" font-weight="bold">DATA (0-8 байт)</text>
+
+  <rect x="640" y="120" width="60" height="40" rx="3" fill="#ff525230" stroke="#ff5252" stroke-width="1"/>
+  <text x="670" y="135" text-anchor="middle" fill="#ff8a80" font-size="9">CRC+ACK+EOF</text>
+</svg>
+</div>
+
+<div class="two-col">
+<div>
+<h3>Standard Frame (11-bit ID)</h3>
+<table>
+<tr><td>Диапазон ID</td><td><code>0x000</code> &mdash; <code>0x7FF</code></td></tr>
+<tr><td>ID в прошивке</td><td><code>extended = false</code></td></tr>
+<tr><td>Применение</td><td>OBD-II, большинство легковых авто</td></tr>
+<tr><td>Максимум ID</td><td>2048 уникальных</td></tr>
+</table>
+</div>
+<div>
+<h3>Extended Frame (29-bit ID)</h3>
+<table>
+<tr><td>Диапазон ID</td><td><code>0x00000000</code> &mdash; <code>0x1FFFFFFF</code></td></tr>
+<tr><td>ID в прошивке</td><td><code>extended = true</code> (бит 31 в GVRET)</td></tr>
+<tr><td>Применение</td><td>J1939 (грузовики), диагностика</td></tr>
+<tr><td>Максимум ID</td><td>~537 миллионов</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ====== CAN_FRAME STRUCT ====== -->
+<h2>Структура CAN_FRAME в прошивке</h2>
+<pre><span style="color:#888">// esp32_can_idf.h</span>
+
+<span style="color:#ab47bc">typedef union</span> {
+    <span style="color:#42a5f5">uint8_t</span> bytes[<span style="color:#ffab40">8</span>];      <span style="color:#888">// доступ побайтно</span>
+} <span style="color:#00e5ff">CAN_DATA</span>;
+
+<span style="color:#ab47bc">typedef struct</span> {
+    <span style="color:#42a5f5">uint32_t</span> <span style="color:#66bb6a">id</span>;           <span style="color:#888">// 11-bit или 29-bit CAN ID</span>
+    <span style="color:#42a5f5">uint32_t</span> <span style="color:#66bb6a">timestamp</span>;    <span style="color:#888">// микросекунды с момента старта</span>
+    <span style="color:#42a5f5">bool</span>     <span style="color:#66bb6a">extended</span>;     <span style="color:#888">// true = 29-bit extended ID</span>
+    <span style="color:#42a5f5">uint8_t</span>  <span style="color:#66bb6a">length</span>;       <span style="color:#888">// DLC: 0-8 байт данных</span>
+    <span style="color:#42a5f5">uint8_t</span>  <span style="color:#66bb6a">rtr</span>;          <span style="color:#888">// Remote Transmission Request</span>
+    <span style="color:#00e5ff">CAN_DATA</span> <span style="color:#66bb6a">data</span>;         <span style="color:#888">// 8 байт данных</span>
+} <span style="color:#00e5ff">CAN_FRAME</span>;</pre>
+
+<!-- ====== OBD-II ====== -->
+<h2>OBD-II диагностика через CAN</h2>
+
+<div class="info"><strong>Прошивка не содержит встроенных OBD-II PID!</strong> Она является прозрачным шлюзом &mdash; все фреймы передаются в SavvyCAN как есть. Но вы можете отправлять OBD-II запросы из SavvyCAN вручную.</div>
+
+<h3>Как работает OBD-II запрос/ответ</h3>
+<div class="diagram-wrap">
+<svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="800" height="120" fill="#0d0d0d"/>
+
+  <!-- SavvyCAN -->
+  <rect x="20" y="30" width="100" height="50" rx="6" fill="#1a237e" stroke="#5c6bc0" stroke-width="1.5"/>
+  <text x="70" y="55" text-anchor="middle" fill="#9fa8da" font-size="10" font-weight="bold">SavvyCAN</text>
+  <text x="70" y="68" text-anchor="middle" fill="#7986cb" font-size="8">запрос PID</text>
+
+  <!-- Arrow 1 -->
+  <line x1="125" y1="55" x2="195" y2="55" stroke="#42a5f5" stroke-width="2"/>
+  <text x="160" y="48" fill="#42a5f5" font-size="9" text-anchor="middle">GVRET</text>
+
+  <!-- ESP32 -->
+  <rect x="200" y="30" width="100" height="50" rx="6" fill="#263238" stroke="#546e7a" stroke-width="1.5"/>
+  <text x="250" y="55" text-anchor="middle" fill="#90a4ae" font-size="10" font-weight="bold">ESP32</text>
+  <text x="250" y="68" text-anchor="middle" fill="#78909c" font-size="8">шлюз</text>
+
+  <!-- Arrow 2 -->
+  <line x1="305" y1="55" x2="375" y2="55" stroke="#66bb6a" stroke-width="2"/>
+  <text x="340" y="48" fill="#66bb6a" font-size="9" text-anchor="middle">CAN TX</text>
+
+  <!-- ECU -->
+  <rect x="380" y="30" width="100" height="50" rx="6" fill="#1b5e20" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="430" y="55" text-anchor="middle" fill="#a5d6a7" font-size="10" font-weight="bold">ECU авто</text>
+  <text x="430" y="68" text-anchor="middle" fill="#81c784" font-size="8">ответ PID</text>
+
+  <!-- Arrow 3 (response back) -->
+  <line x1="430" y1="85" x2="430" y2="100" stroke="#66bb6a" stroke-width="1.5"/>
+  <line x1="430" y1="100" x2="70" y2="100" stroke="#66bb6a" stroke-width="1.5"/>
+  <line x1="70" y1="100" x2="70" y2="85" stroke="#42a5f5" stroke-width="1.5"/>
+  <text x="250" y="96" text-anchor="middle" fill="#a5d6a7" font-size="9">ответ: CAN RX &rarr; ESP32 &rarr; GVRET &rarr; SavvyCAN</text>
+</svg>
+</div>
+
+<h3>Формат OBD-II запроса</h3>
+<pre>CAN ID: <span style="color:#00e5ff">0x7DF</span> (broadcast) или <span style="color:#00e5ff">0x7E0</span> (ECU #1)
+DLC:    <span style="color:#ab47bc">8</span> (всегда 8 байт, неиспользуемые = 0x00)
+
+Байт 0: <span style="color:#ffab40">Кол-во значимых байт</span> (обычно 02)
+Байт 1: <span style="color:#42a5f5">Режим (Service)</span>
+Байт 2: <span style="color:#66bb6a">PID</span>
+Байт 3-7: <span style="color:#888">0x00 (padding)</span></pre>
+
+<h3>Формат OBD-II ответа</h3>
+<pre>CAN ID: <span style="color:#00e5ff">0x7E8</span> (ответ от ECU #1 = 0x7E0 + 8)
+DLC:    <span style="color:#ab47bc">8</span>
+
+Байт 0: <span style="color:#ffab40">Кол-во значимых байт</span>
+Байт 1: <span style="color:#42a5f5">Режим + 0x40</span> (например 0x01 &rarr; 0x41)
+Байт 2: <span style="color:#66bb6a">PID</span>
+Байт 3+: <span style="color:#ff9800">Данные (зависит от PID)</span></pre>
+
+<!-- ====== COMMON PIDs ====== -->
+<h2>Распространённые OBD-II PID (Mode 01)</h2>
+<table>
+<tr><th>PID</th><th>Описание</th><th>Запрос (data)</th><th>Формула ответа</th><th>Единицы</th></tr>
+<tr>
+  <td class="hex">0x00</td>
+  <td>Поддерживаемые PID [01-20]</td>
+  <td><code>02 01 00 00 00 00 00 00</code></td>
+  <td>Битовая маска (4 байта)</td>
+  <td>&mdash;</td>
+</tr>
+<tr>
+  <td class="hex">0x04</td>
+  <td>Нагрузка двигателя</td>
+  <td><code>02 01 04 00 00 00 00 00</code></td>
+  <td>A * 100 / 255</td>
+  <td>%</td>
+</tr>
+<tr>
+  <td class="hex">0x05</td>
+  <td>Температура ОЖ</td>
+  <td><code>02 01 05 00 00 00 00 00</code></td>
+  <td>A - 40</td>
+  <td>&deg;C</td>
+</tr>
+<tr>
+  <td class="hex">0x0B</td>
+  <td>Давление во впуске (MAP)</td>
+  <td><code>02 01 0B 00 00 00 00 00</code></td>
+  <td>A</td>
+  <td>кПа</td>
+</tr>
+<tr>
+  <td class="hex">0x0C</td>
+  <td>Обороты двигателя (RPM)</td>
+  <td><code>02 01 0C 00 00 00 00 00</code></td>
+  <td>(A * 256 + B) / 4</td>
+  <td>об/мин</td>
+</tr>
+<tr>
+  <td class="hex">0x0D</td>
+  <td>Скорость автомобиля</td>
+  <td><code>02 01 0D 00 00 00 00 00</code></td>
+  <td>A</td>
+  <td>км/ч</td>
+</tr>
+<tr>
+  <td class="hex">0x0F</td>
+  <td>Температура впускного воздуха</td>
+  <td><code>02 01 0F 00 00 00 00 00</code></td>
+  <td>A - 40</td>
+  <td>&deg;C</td>
+</tr>
+<tr>
+  <td class="hex">0x10</td>
+  <td>Расход воздуха (MAF)</td>
+  <td><code>02 01 10 00 00 00 00 00</code></td>
+  <td>(A * 256 + B) / 100</td>
+  <td>г/с</td>
+</tr>
+<tr>
+  <td class="hex">0x11</td>
+  <td>Положение дросселя</td>
+  <td><code>02 01 11 00 00 00 00 00</code></td>
+  <td>A * 100 / 255</td>
+  <td>%</td>
+</tr>
+<tr>
+  <td class="hex">0x1F</td>
+  <td>Время работы двигателя</td>
+  <td><code>02 01 1F 00 00 00 00 00</code></td>
+  <td>A * 256 + B</td>
+  <td>сек</td>
+</tr>
+<tr>
+  <td class="hex">0x2F</td>
+  <td>Уровень топлива</td>
+  <td><code>02 01 2F 00 00 00 00 00</code></td>
+  <td>A * 100 / 255</td>
+  <td>%</td>
+</tr>
+<tr>
+  <td class="hex">0x46</td>
+  <td>Температура окружающей среды</td>
+  <td><code>02 01 46 00 00 00 00 00</code></td>
+  <td>A - 40</td>
+  <td>&deg;C</td>
+</tr>
+</table>
+
+<h3>Пример: запрос оборотов (RPM)</h3>
+<pre><span style="color:#42a5f5">ЗАПРОС</span> (SavvyCAN &rarr; CAN шина):
+  ID: <span class="hex">0x7DF</span>  DLC: <span class="hex">8</span>  Data: <span class="hex">02 01 0C 00 00 00 00 00</span>
+                                   │  │  │
+                                   │  │  └─ PID 0x0C (RPM)
+                                   │  └──── Service 01 (текущие данные)
+                                   └─────── 2 значимых байта
+
+<span style="color:#66bb6a">ОТВЕТ</span> (ECU &rarr; SavvyCAN):
+  ID: <span class="hex">0x7E8</span>  DLC: <span class="hex">8</span>  Data: <span class="hex">04 41 0C 1A F8 00 00 00</span>
+                                   │  │  │  │  │
+                                   │  │  │  │  └─ B = 0xF8 = 248
+                                   │  │  │  └──── A = 0x1A = 26
+                                   │  │  └─────── PID 0x0C
+                                   │  └────────── 0x41 = Service 01 + 0x40
+                                   └───────────── 4 значимых байта
+
+  RPM = (A * 256 + B) / 4 = (26 * 256 + 248) / 4 = <span style="color:#00e5ff;font-weight:bold">1718 об/мин</span></pre>
+
+<!-- ====== COMMON CAN IDs ====== -->
+<h2>Типичные CAN ID в автомобиле</h2>
+<table>
+<tr><th>Диапазон ID</th><th>Приоритет</th><th>Типичное назначение</th></tr>
+<tr><td><code>0x000 - 0x0FF</code></td><td style="color:#ff5252">Высший</td><td>Сетевое управление, wake-up, ошибки</td></tr>
+<tr><td><code>0x100 - 0x1FF</code></td><td style="color:#ff9800">Высокий</td><td>Двигатель, трансмиссия, ABS, ESP</td></tr>
+<tr><td><code>0x200 - 0x3FF</code></td><td style="color:#ffab40">Средний</td><td>Рулевое управление, подушки, климат</td></tr>
+<tr><td><code>0x400 - 0x5FF</code></td><td style="color:#42a5f5">Ниже среднего</td><td>Кузовные ЭБУ, освещение, стеклоподъёмники</td></tr>
+<tr><td><code>0x600 - 0x6FF</code></td><td style="color:#78909c">Низкий</td><td>Мультимедиа, навигация</td></tr>
+<tr><td style="color:#00e5ff;font-weight:bold"><code>0x7DF</code></td><td style="color:#78909c">Низкий</td><td style="color:#00e5ff"><strong>OBD-II broadcast запрос</strong></td></tr>
+<tr><td style="color:#00e5ff"><code>0x7E0 - 0x7E7</code></td><td style="color:#78909c">Низкий</td><td>OBD-II запрос к конкретному ECU (#0-#7)</td></tr>
+<tr><td style="color:#66bb6a"><code>0x7E8 - 0x7EF</code></td><td style="color:#78909c">Низкий</td><td style="color:#66bb6a">OBD-II ответ от ECU (#0-#7)</td></tr>
+</table>
+
+<div class="info"><strong>Приоритет</strong>: в CAN шине побеждает фрейм с меньшим ID (арбитраж). Поэтому критические системы (тормоза, мотор) используют низкие ID, а диагностика OBD-II &mdash; высокие.</div>
+
+<!-- ====== SAVVYCAN GUIDE ====== -->
+<h2>Работа с SavvyCAN</h2>
+
+<h3>Подключение</h3>
+<table>
+<tr><th>Шаг</th><th>Действие</th></tr>
+<tr><td>1</td><td>Подключиться к WiFi: <code>AVTOTOR_CAN</code> / <code>mypassword</code></td></tr>
+<tr><td>2</td><td>SavvyCAN &rarr; <strong>Connection</strong> &rarr; <strong>Open Connection Window</strong></td></tr>
+<tr><td>3</td><td>Выбрать <strong>Network Connection (GVRET)</strong></td></tr>
+<tr><td>4</td><td>IP: <code>192.168.4.1</code>, Port: <code>23</code></td></tr>
+<tr><td>5</td><td>Нажать <strong>Create New Connection</strong></td></tr>
+<tr><td>6</td><td>Фреймы начнут появляться в основном окне</td></tr>
+</table>
+
+<h3>Отправка фрейма из SavvyCAN</h3>
+<table>
+<tr><th>Шаг</th><th>Действие</th></tr>
+<tr><td>1</td><td>SavvyCAN &rarr; <strong>Send Frames</strong></td></tr>
+<tr><td>2</td><td>ID: <code>7DF</code>, Bus: <code>0</code>, Len: <code>8</code></td></tr>
+<tr><td>3</td><td>Data: <code>02 01 0C 00 00 00 00 00</code> (RPM запрос)</td></tr>
+<tr><td>4</td><td>Нажать <strong>Send</strong></td></tr>
+<tr><td>5</td><td>Искать ответ с ID <code>0x7E8</code> в списке фреймов</td></tr>
+</table>
+
+<div class="warn"><strong>Осторожно с отправкой!</strong> В режиме NORMAL прошивка может отправлять фреймы в CAN шину автомобиля. Неправильные фреймы могут вызвать неожиданное поведение. Для безопасного мониторинга используйте Listen-Only режим (настраивается через GVRET команду SETUP_CANBUS).</div>
+
+<!-- ====== FILTERING ====== -->
+<h2>Фильтрация фреймов</h2>
+
+<div class="info">В текущей прошивке TWAI настроен на приём <strong>всех фреймов</strong> (<code>TWAI_FILTER_CONFIG_ACCEPT_ALL()</code>). Фильтрация не используется &mdash; все фреймы передаются в SavvyCAN, где можно фильтровать программно.</div>
+
+<h3>Аппаратная фильтрация TWAI (если включить)</h3>
+<pre>ESP32 TWAI поддерживает один аппаратный фильтр:
+
+<span style="color:#42a5f5">twai_filter_config_t</span> f_config = {
+    .acceptance_code = <span style="color:#ffab40">0x7E000000</span>,  <span style="color:#888">// ID для сравнения (сдвинут влево)</span>
+    .acceptance_mask = <span style="color:#ffab40">0x001FFFFF</span>,  <span style="color:#888">// 0 = проверять бит, 1 = игнорировать</span>
+    .single_filter   = <span style="color:#ffab40">true</span>         <span style="color:#888">// один фильтр на все фреймы</span>
+};
+
+Правило: (входящий_ID &amp; ~маска) == (код &amp; ~маска) &rarr; принять
+
+<span style="color:#888">В нашей прошивке: acceptance_mask = 0xFFFFFFFF (все биты игнорируются → принимать всё)</span></pre>
+
+<!-- ====== ERROR HANDLING ====== -->
+<h2>Ошибки CAN</h2>
+<table>
+<tr><th>TWAI алерт</th><th>Описание</th><th>Причина</th></tr>
+<tr><td>TWAI_ALERT_RX_QUEUE_FULL</td><td>Переполнение RX очереди (32 фрейма)</td><td>Главный цикл не успевает обрабатывать фреймы</td></tr>
+<tr><td>TWAI_ALERT_BUS_OFF</td><td>Bus-Off (TX error > 255)</td><td>Проблема с шиной: терминация, замыкание, перепутаны H/L</td></tr>
+<tr><td>TWAI_ALERT_ERR_PASS</td><td>Error Passive (error > 127)</td><td>Фреймы не подтверждаются (нет ACK) или ошибки CRC</td></tr>
+<tr><td>TWAI_ALERT_ABOVE_ERR_WARN</td><td>Warning (error > 96)</td><td>Начинаются проблемы с передачей/приёмом</td></tr>
+<tr><td>TWAI_ALERT_BUS_RECOVERED</td><td>Восстановление после Bus-Off</td><td>TWAI автоматически восстановился</td></tr>
+<tr><td>TWAI_ALERT_ARB_LOST</td><td>Потеря арбитража</td><td>Другой узел с меньшим ID выиграл передачу</td></tr>
+<tr><td>TWAI_ALERT_TX_FAILED</td><td>Ошибка передачи</td><td>Нет ACK или ошибка шины при TX</td></tr>
+</table>
+
+<h3>Счётчики ошибок CAN</h3>
+<pre><span style="color:#888">Каждый узел CAN ведёт два счётчика (доступны через twai_get_status_info):</span>
+
+TEC (Transmit Error Counter):
+  <span style="color:#66bb6a">0-95</span>    : Error Active  &rarr; нормальная работа
+  <span style="color:#ff9800">96-127</span>  : Warning        &rarr; начались проблемы
+  <span style="color:#ff5252">128-255</span> : Error Passive  &rarr; может только слушать
+  <span style="color:#ff5252;font-weight:bold">>255</span>    : Bus-Off        &rarr; отключён от шины!
+
+REC (Receive Error Counter):
+  Аналогично TEC, но для приёма.
+
+<span style="color:#888">При Bus-Off TWAI можно восстановить: twai_initiate_recovery().</span>
+<span style="color:#888">Текущее состояние: twai_get_status_info(&amp;status) → status.state</span>
+<span style="color:#888">  TWAI_STATE_RUNNING / TWAI_STATE_BUS_OFF / TWAI_STATE_RECOVERING</span></pre>
+
+<!-- ====== TYPICAL TRAFFIC ====== -->
+<h2>Типичный трафик легкового авто</h2>
+<table>
+<tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>Фреймов в секунду</td><td>500 &mdash; 3000 (зависит от авто)</td></tr>
+<tr><td>Уникальных ID</td><td>50 &mdash; 200</td></tr>
+<tr><td>Период обновления</td><td>10 мс (быстрые) &mdash; 1000 мс (медленные)</td></tr>
+<tr><td>Загрузка шины @ 500K</td><td>10-60% типично</td></tr>
+<tr><td>Размер фрейма</td><td>~128 бит (ID=11, DLC=8, с overhead)</td></tr>
+<tr><td>Макс. фреймов/с @ 500K</td><td>~3900 (теоретически)</td></tr>
+</table>
+
+<div class="ok"><strong>Пропускная способность WiFi:</strong> при буфере 2048 байт и flush 20 мс, ESP32 может передать ~100 КБ/с. Один GVRET фрейм = ~19 байт. Итого ~5200 фреймов/с &mdash; достаточно для большинства автомобилей.</div>
+
+</div>
+</body>
+</html>

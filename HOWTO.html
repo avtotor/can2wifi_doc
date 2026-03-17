@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Как это работает — CAN→WiFi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;background:#0a0a0a;color:#e5e5e5;padding:0;font-size:14px;line-height:1.55;font-weight:400}
+:root{--bg:#0a0a0a;--panel:#0d0d0d;--panel2:#141414;--line:#262626;--muted:#737373;--muted2:#525252;--text:#e5e5e5;--text2:#d4d4d4;--white:#fafafa;--g:#22c55e;--r:#ef4444;--b:#3b82f6}
+.nav{display:flex;flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;position:sticky;top:0;z-index:100}
+.nav a{color:var(--muted);text-decoration:none;padding:14px 20px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;position:relative}
+.nav a:hover{color:var(--white)}
+.nav a.active{color:var(--white)}
+.nav a.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--white)}
+.content{padding:32px 24px;max-width:1200px;margin:0 auto}
+h1{font-weight:500;text-align:center;color:var(--white);margin:0 0 8px;font-size:1.15rem;letter-spacing:.10em;text-transform:uppercase}
+h2{font-weight:500;color:var(--white);margin:48px 0 16px;font-size:.98rem;letter-spacing:.12em;text-transform:uppercase;position:relative;padding-bottom:10px}
+h2::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--line)}
+h3{font-weight:600;color:var(--text2);margin:24px 0 10px;font-size:.9rem;letter-spacing:.04em}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:32px;font-size:12px;letter-spacing:.03em}
+.diagram-wrap{background:var(--panel);padding:20px;margin:24px 0;overflow-x:auto;border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.diagram-wrap svg{display:block}
+.diagram-wrap svg rect{rx:0;ry:0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{background:var(--panel2);color:var(--text2);padding:10px 14px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line)}
+td{padding:10px 14px;border:1px solid var(--line);font-size:13px;color:var(--text2)}
+tr:hover td{background:var(--panel2)}
+.warn,.ok,.info,.danger{position:relative;background:var(--panel2);border:1px solid var(--line);padding:12px 16px 12px 22px;margin:16px 0;font-size:13px;color:var(--text2)}
+.warn::before,.ok::before,.info::before,.danger::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+.ok::before{background:var(--g)}
+.info::before{background:var(--b)}
+.danger::before{background:var(--r)}
+.warn::before{background:#f59e0b}
+code{background:var(--panel2);padding:2px 6px;font-size:12px;border:1px solid var(--line);color:var(--white)}
+pre{background:var(--panel);padding:16px;font-size:12px;line-height:1.65;border:1px solid var(--line);overflow-x:auto;color:var(--text2)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px}
+.card h3{margin-top:0}
+.analogy{background:var(--panel2);border:1px solid var(--line);padding:12px 16px 12px 22px;margin:16px 0;font-size:13px;color:var(--text2);position:relative}
+.analogy::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--muted2)}
+.step{background:var(--panel);border:1px solid var(--line);padding:12px 16px;margin:10px 0}
+.step-num{display:inline-block;background:var(--panel2);border:1px solid var(--line);color:var(--white);width:26px;height:26px;text-align:center;line-height:26px;font-weight:600;margin-right:8px;font-size:.85em}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Главная</a>
+  <a href="wiring.html">Подключение</a>
+  <a href="signals.html">Сигналы</a>
+  <a href="can_frames.html">CAN фреймы</a>
+  <a href="freertos.html">FreeRTOS</a>
+  <a href="howto.html" class="active">HOWTO</a>
+</div>
+<div class="content">
+<h1>Как это работает</h1>
+<p class="subtitle">TJA1050, делитель напряжения, TX/RX &mdash; простым языком</p>
+
+<!-- ====== TJA1050 СУТЬ ====== -->
+<h2>Что такое TJA1050</h2>
+
+<p>Два устройства говорят на <strong>разных языках</strong>:</p>
+
+<div class="two-col">
+<div class="card">
+<h3>ESP32 говорит:</h3>
+<p>&laquo;Есть напряжение / нет напряжения&raquo; на <strong>одном проводе</strong>.</p>
+<p>0V = LOW, 3.3V = HIGH. Всё просто.</p>
+</div>
+<div class="card">
+<h3>CAN шина в машине говорит:</h3>
+<p>&laquo;Разница напряжений между <strong>двумя проводами</strong>&raquo; (CANH и CANL).</p>
+<p>Разница 0V = &laquo;1&raquo;, разница 2V = &laquo;0&raquo;.</p>
+</div>
+</div>
+
+<div class="ok"><strong>TJA1050 &mdash; это переводчик.</strong> Он сидит посередине и переводит с одного языка на другой. Больше он ничего не делает. Никакой логики, никакого анализа данных &mdash; тупо преобразование электричества из одной формы в другую.</div>
+
+<!-- ====== ЗАЧЕМ ДВА ПРОВОДА ====== -->
+<h2>Зачем машине два провода (дифференциальный сигнал)</h2>
+
+<p>В автомобиле <strong>куча помех</strong> &mdash; зажигание, моторы стеклоподъёмников, реле, генератор. Если вести один провод &mdash; помеха исказит сигнал и данные потеряются.</p>
+
+<p>Решение: <strong>два провода, CANH и CANL</strong>. Информация &mdash; это разница между ними:</p>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 800 220" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="800" height="220" fill="#0d0d0d"/>
+
+  <!-- Рецессивное состояние (1) -->
+  <rect x="40" y="30" width="340" height="80" rx="8" fill="#1b5e2020" stroke="#66bb6a40"/>
+  <text x="210" y="25" text-anchor="middle" fill="#66bb6a" font-size="12" font-weight="bold">Рецессивное = &quot;1&quot; (idle)</text>
+  <text x="70" y="55" fill="#ff8a80" font-size="10">CANH</text>
+  <rect x="110" y="45" width="80" height="18" rx="3" fill="#ff5252" opacity=".3"/>
+  <text x="150" y="58" text-anchor="middle" fill="#ff8a80" font-size="11" font-weight="bold">2.5V</text>
+  <text x="70" y="85" fill="#80cbc4" font-size="10">CANL</text>
+  <rect x="110" y="75" width="80" height="18" rx="3" fill="#26a69a" opacity=".3"/>
+  <text x="150" y="88" text-anchor="middle" fill="#80cbc4" font-size="11" font-weight="bold">2.5V</text>
+  <text x="280" y="70" text-anchor="middle" fill="#888" font-size="11">разница = <tspan fill="#66bb6a" font-weight="bold">0V</tspan></text>
+
+  <!-- Доминантное состояние (0) -->
+  <rect x="420" y="30" width="340" height="80" rx="8" fill="#e6514020" stroke="#ff525240"/>
+  <text x="590" y="25" text-anchor="middle" fill="#ff8a80" font-size="12" font-weight="bold">Доминантное = &quot;0&quot; (данные)</text>
+  <text x="450" y="55" fill="#ff8a80" font-size="10">CANH</text>
+  <rect x="490" y="45" width="80" height="18" rx="3" fill="#ff5252" opacity=".3"/>
+  <text x="530" y="58" text-anchor="middle" fill="#ff8a80" font-size="11" font-weight="bold">3.5V</text>
+  <text x="450" y="85" fill="#80cbc4" font-size="10">CANL</text>
+  <rect x="490" y="75" width="80" height="18" rx="3" fill="#26a69a" opacity=".3"/>
+  <text x="530" y="88" text-anchor="middle" fill="#80cbc4" font-size="11" font-weight="bold">1.5V</text>
+  <text x="660" y="70" text-anchor="middle" fill="#888" font-size="11">разница = <tspan fill="#ff8a80" font-weight="bold">2V</tspan></text>
+
+  <!-- Помеха -->
+  <rect x="120" y="135" width="560" height="70" rx="8" fill="#ff980015" stroke="#ff980040"/>
+  <text x="400" y="155" text-anchor="middle" fill="#ffab40" font-size="11" font-weight="bold">Помеха +0.5V ударила по обоим проводам одновременно</text>
+  <text x="200" y="178" text-anchor="middle" fill="#888" font-size="10">CANH: 2.5 &rarr; 3.0V</text>
+  <text x="200" y="193" text-anchor="middle" fill="#888" font-size="10">CANL: 2.5 &rarr; 3.0V</text>
+  <text x="400" y="185" text-anchor="middle" fill="#66bb6a" font-size="11" font-weight="bold">разница = 0V (не изменилась!)</text>
+  <text x="600" y="185" text-anchor="middle" fill="#888" font-size="10">данные сохранены</text>
+</svg>
+</div>
+
+<div class="analogy"><strong>Аналогия:</strong> два человека на качелях. Если качели целиком поднять на полметра (помеха) &mdash; расстояние между людьми не изменится. Информация &mdash; в разнице, а не в абсолютной высоте.</div>
+
+<!-- ====== ЧТО ДЕЛАЕТ TJA1050 ====== -->
+<h2>Что конкретно делает TJA1050</h2>
+
+<h3>Приём (RX) &mdash; машина говорит, ESP32 слушает</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="800" height="120" fill="#0d0d0d"/>
+
+  <!-- CAN bus -->
+  <rect x="20" y="35" width="130" height="50" rx="6" fill="#1b5e20" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="85" y="57" text-anchor="middle" fill="#a5d6a7" font-size="10">CANH</text>
+  <text x="85" y="73" text-anchor="middle" fill="#80cbc4" font-size="10">CANL</text>
+
+  <!-- Arrow -->
+  <line x1="150" y1="60" x2="205" y2="60" stroke="#66bb6a" stroke-width="2"/>
+  <polygon points="205,55 205,65 215,60" fill="#66bb6a"/>
+
+  <!-- TJA1050 -->
+  <rect x="220" y="30" width="200" height="60" rx="6" fill="#4a148c" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="320" y="55" text-anchor="middle" fill="#ce93d8" font-size="12" font-weight="bold">TJA1050</text>
+  <text x="320" y="73" text-anchor="middle" fill="#ba68c8" font-size="9">смотрит разницу CANH&minus;CANL</text>
+
+  <!-- Arrow -->
+  <line x1="420" y1="60" x2="475" y2="60" stroke="#ab47bc" stroke-width="2"/>
+  <polygon points="475,55 475,65 485,60" fill="#ab47bc"/>
+
+  <!-- RX output -->
+  <rect x="490" y="35" width="120" height="50" rx="6" fill="#263238" stroke="#ff5252" stroke-width="1.5"/>
+  <text x="550" y="55" text-anchor="middle" fill="#ff8a80" font-size="10">RX выход</text>
+  <text x="550" y="73" text-anchor="middle" fill="#ff8a80" font-size="12" font-weight="bold">0V / 5V</text>
+
+  <!-- Arrow -->
+  <line x1="610" y1="60" x2="655" y2="60" stroke="#ffab40" stroke-width="2"/>
+  <polygon points="655,55 655,65 665,60" fill="#ffab40"/>
+
+  <!-- Divider -->
+  <rect x="670" y="35" width="110" height="50" rx="6" fill="#263238" stroke="#00e5ff" stroke-width="1.5"/>
+  <text x="725" y="52" text-anchor="middle" fill="#ffab40" font-size="9">делитель 1к/2к</text>
+  <text x="725" y="68" text-anchor="middle" fill="#00e5ff" font-size="10" font-weight="bold">&darr; 3.33V</text>
+  <text x="725" y="80" text-anchor="middle" fill="#00e5ff" font-size="9">GPIO 5 ESP32</text>
+
+  <!-- Labels -->
+  <text x="85" y="105" text-anchor="middle" fill="#666" font-size="9">2 провода</text>
+  <text x="550" y="105" text-anchor="middle" fill="#666" font-size="9">1 провод, 5V</text>
+  <text x="725" y="105" text-anchor="middle" fill="#666" font-size="9">1 провод, 3.3V</text>
+</svg>
+</div>
+
+<p>TJA1050 смотрит: разница 2V между CANH и CANL? &mdash; значит &laquo;0&raquo;, выдаёт 0V. Разница 0V? &mdash; значит &laquo;1&raquo;, выдаёт 5V. Делитель снижает 5V до 3.33V, безопасных для ESP32.</p>
+
+<h3>Передача (TX) &mdash; ESP32 говорит, машина слушает</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="800" height="120" fill="#0d0d0d"/>
+
+  <!-- ESP32 TX -->
+  <rect x="20" y="35" width="150" height="50" rx="6" fill="#263238" stroke="#00e5ff" stroke-width="1.5"/>
+  <text x="95" y="55" text-anchor="middle" fill="#00e5ff" font-size="10">ESP32 GPIO 4</text>
+  <text x="95" y="73" text-anchor="middle" fill="#00e5ff" font-size="12" font-weight="bold">0V / 3.3V</text>
+
+  <!-- Arrow -->
+  <line x1="170" y1="60" x2="245" y2="60" stroke="#00e5ff" stroke-width="2"/>
+  <polygon points="245,55 245,65 255,60" fill="#00e5ff"/>
+  <text x="208" y="48" text-anchor="middle" fill="#66bb6a" font-size="9">напрямую!</text>
+
+  <!-- TJA1050 -->
+  <rect x="260" y="30" width="200" height="60" rx="6" fill="#4a148c" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="360" y="55" text-anchor="middle" fill="#ce93d8" font-size="12" font-weight="bold">TJA1050</text>
+  <text x="360" y="73" text-anchor="middle" fill="#ba68c8" font-size="9">раздвигает на 2 провода</text>
+
+  <!-- Arrow -->
+  <line x1="460" y1="60" x2="535" y2="60" stroke="#ab47bc" stroke-width="2"/>
+  <polygon points="535,55 535,65 545,60" fill="#ab47bc"/>
+
+  <!-- CAN bus -->
+  <rect x="550" y="35" width="130" height="50" rx="6" fill="#1b5e20" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="615" y="57" text-anchor="middle" fill="#a5d6a7" font-size="10">CANH 3.5V</text>
+  <text x="615" y="73" text-anchor="middle" fill="#80cbc4" font-size="10">CANL 1.5V</text>
+
+  <!-- Labels -->
+  <text x="95" y="105" text-anchor="middle" fill="#666" font-size="9">1 провод, 3.3V</text>
+  <text x="615" y="105" text-anchor="middle" fill="#666" font-size="9">2 провода, &Delta;2V</text>
+</svg>
+</div>
+
+<p>ESP32 выдаёт 3.3V на GPIO 4. TJA1050 воспринимает это как HIGH (порог 2.0V). Делитель <strong>не нужен</strong> &mdash; ESP32 говорит &laquo;тише&raquo;, но TJA1050 достаточно.</p>
+
+<!-- ====== ПОЧЕМУ TX БЕЗ ДЕЛИТЕЛЯ ====== -->
+<h2>Почему TX безопасен без делителя</h2>
+
+<div class="two-col">
+<div class="card">
+<h3 style="color:#00e5ff">TX (GPIO 4 &rarr; TJA1050)</h3>
+<table>
+<tr><td>ESP32 выдаёт</td><td style="color:#00e5ff;font-weight:bold">3.3V</td></tr>
+<tr><td>TJA1050 порог HIGH (VIH)</td><td>&ge; 2.0V</td></tr>
+<tr><td>3.3V &gt; 2.0V ?</td><td style="color:#66bb6a;font-weight:bold">ДА &rarr; работает</td></tr>
+<tr><td>Делитель нужен?</td><td style="color:#66bb6a;font-weight:bold">НЕТ</td></tr>
+</table>
+</div>
+<div class="card">
+<h3 style="color:#ff5252">RX (TJA1050 &rarr; GPIO 5)</h3>
+<table>
+<tr><td>TJA1050 выдаёт</td><td style="color:#ff5252;font-weight:bold">5.0V</td></tr>
+<tr><td>ESP32 GPIO максимум</td><td>3.6V (абсолютный)</td></tr>
+<tr><td>5.0V &lt; 3.6V ?</td><td style="color:#ff5252;font-weight:bold">НЕТ &rarr; сгорит!</td></tr>
+<tr><td>Делитель нужен?</td><td style="color:#ff5252;font-weight:bold">ДА, обязательно!</td></tr>
+</table>
+</div>
+</div>
+
+<div class="analogy"><strong>Аналогия:</strong> ты кричишь в ухо человеку, который привык к громкости 5 из 10. Ты кричишь на 3.3 из 10 &mdash; он всё равно слышит, потому что ему достаточно 2 из 10. Переводчик не нужен. А вот обратно &mdash; он кричит на 5 из 10, а ты выдерживаешь максимум 3.6. Нужно приглушить.</div>
+
+<!-- ====== ДВУСТОРОННЯЯ СВЯЗЬ ====== -->
+<h2>Двусторонняя связь (одновременно!)</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 180" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="900" height="180" fill="#0d0d0d"/>
+
+  <!-- ESP32 -->
+  <rect x="30" y="30" width="180" height="120" rx="8" fill="#0d47a1" stroke="#42a5f5" stroke-width="1.5"/>
+  <text x="120" y="55" text-anchor="middle" fill="#90caf9" font-size="13" font-weight="bold">ESP32-S3</text>
+  <text x="120" y="73" text-anchor="middle" fill="#64b5f6" font-size="9">TWAI контроллер</text>
+  <text x="120" y="100" text-anchor="middle" fill="#00e5ff" font-size="10">GPIO 4 (TX) &rarr;</text>
+  <text x="120" y="120" text-anchor="middle" fill="#ff8a80" font-size="10">&larr; GPIO 5 (RX)</text>
+
+  <!-- TX arrow -->
+  <line x1="210" y1="95" x2="370" y2="95" stroke="#00e5ff" stroke-width="2"/>
+  <polygon points="370,90 370,100 380,95" fill="#00e5ff"/>
+  <text x="290" y="88" text-anchor="middle" fill="#00e5ff" font-size="9" font-weight="bold">3.3V напрямую</text>
+
+  <!-- RX arrow -->
+  <line x1="370" y1="115" x2="210" y2="115" stroke="#ff8a80" stroke-width="2"/>
+  <polygon points="210,110 210,120 200,115" fill="#ff8a80"/>
+  <text x="290" y="135" text-anchor="middle" fill="#ffab40" font-size="9" font-weight="bold">5V &rarr; [1к/2к] &rarr; 3.33V</text>
+
+  <!-- TJA1050 -->
+  <rect x="385" y="40" width="160" height="100" rx="8" fill="#4a148c" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="465" y="68" text-anchor="middle" fill="#ce93d8" font-size="13" font-weight="bold">TJA1050</text>
+  <text x="465" y="86" text-anchor="middle" fill="#ba68c8" font-size="9">переводчик</text>
+  <text x="465" y="106" text-anchor="middle" fill="#ce93d8" font-size="10">TX вход | RX выход</text>
+  <text x="465" y="124" text-anchor="middle" fill="#ce93d8" font-size="10">CANH | CANL</text>
+
+  <!-- CAN arrows -->
+  <line x1="545" y1="80" x2="650" y2="80" stroke="#66bb6a" stroke-width="2"/>
+  <polygon points="650,75 650,85 660,80" fill="#66bb6a"/>
+  <line x1="650" y1="100" x2="545" y2="100" stroke="#66bb6a" stroke-width="2"/>
+  <polygon points="545,95 545,105 535,100" fill="#66bb6a"/>
+  <text x="598" y="70" text-anchor="middle" fill="#66bb6a" font-size="9">CANH / CANL</text>
+
+  <!-- Car -->
+  <rect x="665" y="40" width="200" height="100" rx="8" fill="#1b5e20" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="765" y="68" text-anchor="middle" fill="#a5d6a7" font-size="13" font-weight="bold">Автомобиль</text>
+  <text x="765" y="86" text-anchor="middle" fill="#81c784" font-size="9">ECU двигателя, ABS,</text>
+  <text x="765" y="100" text-anchor="middle" fill="#81c784" font-size="9">комбинация приборов...</text>
+  <text x="765" y="120" text-anchor="middle" fill="#a5d6a7" font-size="10">CAN шина 500 Кбит/с</text>
+
+  <!-- Labels -->
+  <text x="290" y="165" text-anchor="middle" fill="#888" font-size="10">два независимых провода &mdash; передача и приём одновременно</text>
+</svg>
+</div>
+
+<table>
+<tr><th>Направление</th><th>Что происходит</th><th>Когда используется</th></tr>
+<tr>
+  <td style="color:#00e5ff;font-weight:bold">ESP32 &rarr; машина (TX)</td>
+  <td>ESP32 формирует CAN фрейм через TWAI &rarr; GPIO 4 &rarr; TJA1050 раздвигает на CANH/CANL</td>
+  <td>Диагностический запрос OBD-II, ручная отправка из SavvyCAN</td>
+</tr>
+<tr>
+  <td style="color:#ff8a80;font-weight:bold">Машина &rarr; ESP32 (RX)</td>
+  <td>ECU отправляет фрейм &rarr; CANH/CANL &rarr; TJA1050 выдаёт 5V &rarr; делитель &rarr; 3.33V &rarr; GPIO 5 &rarr; TWAI</td>
+  <td>95% времени &mdash; слушаем трафик машины в SavvyCAN</td>
+</tr>
+</table>
+
+<div class="info"><strong>Полный дуплекс.</strong> TX и RX &mdash; два независимых провода. ESP32 может одновременно слушать шину и отправлять на неё. Как телефонный разговор &mdash; слышишь и говоришь одновременно по разным каналам.</div>
+
+<!-- ====== ДЕЛИТЕЛЬ ПОДРОБНО ====== -->
+<h2>Делитель напряжения &mdash; подробно</h2>
+
+<h3>Что стоит на плате TJA1050 модуля</h3>
+
+<p>На типичных standalone TJA1050 модулях стоят:</p>
+<table>
+<tr><th>Элемент</th><th>Номинал</th><th>Назначение</th></tr>
+<tr><td>Резистор</td><td>120 Ом</td><td>Терминация CAN шины (CANH&harr;CANL). <strong>Это НЕ делитель!</strong></td></tr>
+<tr><td>Конденсатор</td><td>100 нФ</td><td>Фильтр питания VCC. <strong>Это НЕ делитель!</strong></td></tr>
+<tr><td>LED + резистор</td><td>&mdash;</td><td>Индикатор питания</td></tr>
+</table>
+
+<div class="warn"><strong>На модуле TJA1050 нет делителя напряжения для RX!</strong> Его нужно паять самому. Два резистора &mdash; 1 кОм и 2 кОм.</div>
+
+<h3>Формула и расчёт</h3>
+
+<pre>TJA1050 RX (5V) ──[<span style="color:#ffab40">R1 = 1 кОм</span>]──┬── <span style="color:#00e5ff">GPIO 5</span> (3.33V)
+                                 │
+                             [<span style="color:#ffab40">R2 = 2 кОм</span>]
+                                 │
+                               <span style="color:#78909c">GND</span>
+
+<span style="color:#888">Формула:  Vout = Vin &times; R2 / (R1 + R2)</span>
+<span style="color:#888">          Vout = 5V  &times; 2000 / (1000 + 2000) = <span style="color:#00e5ff">3.33V</span></span>
+<span style="color:#888">Ток:      I = 5V / 3000 Ом = <span style="color:#ffab40">1.67 мА</span></span></pre>
+
+<h3>Мощность резисторов &mdash; важна ли?</h3>
+
+<table>
+<tr><th>Резистор</th><th>Ток</th><th>Рассеиваемая мощность</th><th>Стандартный минимум</th><th>Запас</th></tr>
+<tr><td>R1 (1 кОм)</td><td>1.67 мА</td><td style="color:#66bb6a">2.8 мВт</td><td>1/8 Вт = 125 мВт</td><td style="color:#66bb6a;font-weight:bold">&times;45</td></tr>
+<tr><td>R2 (2 кОм)</td><td>1.67 мА</td><td style="color:#66bb6a">5.6 мВт</td><td>1/8 Вт = 125 мВт</td><td style="color:#66bb6a;font-weight:bold">&times;22</td></tr>
+</table>
+
+<div class="ok"><strong>Мощность не имеет значения.</strong> Даже самый маленький SMD резистор (0402, 1/16 Вт = 62.5 мВт) справится с запасом в 11 раз. Любые резисторы, какие найдёте &mdash; подойдут.</div>
+
+<h3>Готовые альтернативы делителю</h3>
+
+<table>
+<tr><th>Вариант</th><th>Что это</th><th>Плюсы</th><th>Минусы</th></tr>
+<tr><td style="color:#66bb6a;font-weight:bold">2 резистора (1к + 2к)</td><td>Классический делитель</td><td>Дёшево, просто, надёжно</td><td>Нужно паять</td></tr>
+<tr><td>BSS138 модуль</td><td>Готовый двунаправленный level shifter 3.3V&harr;5V</td><td>Готовая плата, 4 канала</td><td>Overkill для 1 линии RX, ~50 руб.</td></tr>
+<tr><td>TXB0104 / TXS0108E</td><td>4/8-канальный level shifter IC</td><td>Много каналов</td><td>Совершенно избыточно</td></tr>
+</table>
+
+<div class="info"><strong>Рекомендация:</strong> для одной линии RX два резистора &mdash; идеальное решение. Проще не бывает.</div>
+
+<h3>Что купить в магазине</h3>
+
+<table>
+<tr><th>Что</th><th>Номинал</th><th>Маркировка (SMD)</th><th>Полоски (THT)</th><th>Тип</th></tr>
+<tr><td>R1</td><td style="font-weight:bold">1 кОм</td><td>102</td><td><span style="color:#8d6e63">корич</span>-<span style="color:#333">чёрн</span>-<span style="color:#ff5252">красн</span>-<span style="color:#ffab40">золот</span></td><td>Любой, 1/4 Вт, 5%</td></tr>
+<tr><td>R2</td><td style="font-weight:bold">2 кОм</td><td>202</td><td><span style="color:#ff5252">красн</span>-<span style="color:#333">чёрн</span>-<span style="color:#ff5252">красн</span>-<span style="color:#ffab40">золот</span></td><td>Любой, 1/4 Вт, 5%</td></tr>
+</table>
+
+<div class="step"><span class="step-num">!</span><strong>Нет 2 кОм?</strong> Берёшь <strong>два по 1 кОм</strong> и паяешь последовательно. 1 кОм &mdash; самый распространённый номинал, есть в любом магазине.</div>
+
+<h3>Если нет ни 1к ни 2к &mdash; другие пары</h3>
+
+<table>
+<tr><th>R1</th><th>R2</th><th>Vout</th><th>Запас до 3.6V</th><th>Подходит?</th></tr>
+<tr><td>1 кОм</td><td>2 кОм</td><td style="color:#00e5ff;font-weight:bold">3.33V</td><td>0.27V</td><td style="color:#66bb6a;font-weight:bold">Идеально</td></tr>
+<tr><td>2.2 кОм</td><td>4.7 кОм</td><td>3.41V</td><td>0.19V</td><td style="color:#66bb6a">Ок</td></tr>
+<tr><td>3.3 кОм</td><td>6.8 кОм</td><td>3.37V</td><td>0.23V</td><td style="color:#66bb6a">Ок</td></tr>
+<tr><td>1 кОм</td><td>1.5 кОм</td><td>3.0V</td><td>0.6V</td><td style="color:#66bb6a">Ок (запас больше)</td></tr>
+<tr><td>10 кОм</td><td>20 кОм</td><td>3.33V</td><td>0.27V</td><td style="color:#ff9800">Ток 0.17 мА &mdash; фронты могут поплыть</td></tr>
+<tr><td>100 Ом</td><td>200 Ом</td><td>3.33V</td><td>0.27V</td><td style="color:#ff9800">Ток 16.7 мА &mdash; греется зря</td></tr>
+</table>
+
+<div class="warn"><strong>Главное правило:</strong> R1:R2 &asymp; 1:2 и суммарное сопротивление <strong>1&ndash;10 кОм</strong>. Меньше 1к &mdash; лишний нагрев. Больше 10к &mdash; фронты сигнала поплывут на 500 Кбит/с.</div>
+
+<!-- ====== ЧТО TJA1050 НЕ ДЕЛАЕТ ====== -->
+<h2>Чего TJA1050 НЕ делает</h2>
+
+<table>
+<tr><th>Это делает TJA1050</th><th>Это делает TWAI (внутри ESP32)</th></tr>
+<tr><td>Преобразует дифференциальный &harr; одиночный сигнал</td><td>Разбирает CAN фрейм: ID, DLC, данные</td></tr>
+<tr><td>Усиливает сигнал для длинных проводов</td><td>Проверяет CRC-15 (контрольная сумма)</td></tr>
+<tr><td>Защищает шину от короткого замыкания</td><td>Отправляет ACK (подтверждение приёма)</td></tr>
+<tr><td>Работает при &minus;40&deg;C...+125&deg;C</td><td>Фильтрует фреймы по ID (acceptance filter)</td></tr>
+<tr><td>&mdash;</td><td>Буферизирует 32 фрейма в FIFO</td></tr>
+<tr><td>&mdash;</td><td>Считает ошибки (TEC/REC)</td></tr>
+<tr><td>&mdash;</td><td>Переходит в bus-off / recovery</td></tr>
+</table>
+
+<div class="analogy"><strong>Аналогия:</strong> TJA1050 &mdash; это розетка-переходник. Она не знает, что в неё воткнули (чайник, ноутбук, лампу) &mdash; просто меняет форму контактов. Вся &laquo;умная&raquo; работа &mdash; внутри ESP32.</div>
+
+</div>
+</body>
+</html>

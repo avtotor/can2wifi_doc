@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FreeRTOS — CAN→WiFi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+  background:#0a0a0a;
+  color:#e5e5e5;
+  padding:0;
+  font-size:14px;
+  line-height:1.55;
+  font-weight:400;
+}
+
+:root{
+  --bg:#0a0a0a;
+  --panel:#0d0d0d;
+  --panel2:#141414;
+  --line:#262626;
+  --muted:#737373;
+  --muted2:#525252;
+  --text:#e5e5e5;
+  --text2:#d4d4d4;
+  --white:#fafafa;
+  --g:#22c55e;
+  --r:#ef4444;
+  --b:#3b82f6;
+}
+
+.nav{display:flex;background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;position:sticky;top:0;z-index:100}
+.nav a{color:var(--muted);text-decoration:none;padding:14px 20px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;position:relative}
+.nav a:hover{color:var(--white)}
+.nav a.active{color:var(--white)}
+.nav a.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--white)}
+
+.content{padding:32px 24px;max-width:1200px;margin:0 auto}
+h1{font-weight:500;text-align:center;color:var(--white);margin:0 0 8px;font-size:1.15rem;letter-spacing:.10em;text-transform:uppercase}
+h2{font-weight:500;color:var(--white);margin:48px 0 16px;font-size:.98rem;letter-spacing:.12em;text-transform:uppercase;position:relative;padding-bottom:10px}
+h2::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--line)}
+h3{font-weight:600;color:var(--text2);margin:24px 0 10px;font-size:.9rem;letter-spacing:.04em}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:32px;font-size:12px;letter-spacing:.03em}
+
+.diagram-wrap{background:var(--panel);padding:20px;margin:24px 0;overflow-x:auto;border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.diagram-wrap svg{display:block}
+.diagram-wrap svg rect{rx:0;ry:0}
+
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{background:var(--panel2);color:var(--text2);padding:10px 14px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line)}
+td{padding:10px 14px;border:1px solid var(--line);font-size:13px;color:var(--text2)}
+tr:hover td{background:var(--panel2)}
+
+.warn,.ok,.info,.danger{position:relative;background:var(--panel2);border:1px solid var(--line);padding:12px 16px 12px 22px;margin:16px 0;font-size:13px;color:var(--text2)}
+.warn::before,.ok::before,.info::before,.danger::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+.ok::before{background:var(--g)}
+.info::before{background:var(--b)}
+.danger::before{background:var(--r)}
+.warn::before{background:#f59e0b}
+
+code{background:var(--panel2);padding:2px 6px;font-size:12px;border:1px solid var(--line);color:var(--white)}
+pre{background:var(--panel);padding:16px;font-size:12px;line-height:1.65;border:1px solid var(--line);overflow-x:auto;color:var(--text2)}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px}
+.card h3{margin-top:0}
+.core0{color:var(--b)}
+.core1{color:var(--g)}
+.idle{color:var(--muted)}
+.app{color:var(--white)}
+.sys{color:var(--text2)}
+
+/* Compact tables for dense sections */
+.table-compact th{font-size:11px;padding:8px 12px}
+.table-compact td{font-size:12px;padding:8px 12px;line-height:1.45}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Главная</a>
+  <a href="wiring.html">Подключение</a>
+  <a href="signals.html">Сигналы</a>
+  <a href="can_frames.html">CAN фреймы</a>
+  <a href="freertos.html" class="active">FreeRTOS</a>
+  <a href="howto.html">HOWTO</a>
+</div>
+<div class="content">
+<h1>FreeRTOS</h1>
+<p class="subtitle">Архитектура реального времени, задачи, тайминг главного цикла</p>
+
+<!-- ====== ARCHITECTURE OVERVIEW ====== -->
+<h2>Архитектура приложения</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 1100 520" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="1100" height="520" fill="#0d0d0d"/>
+
+  <!-- Title -->
+  <text x="550" y="25" text-anchor="middle" fill="#00e5ff" font-size="14" font-weight="bold">ESP32-S3 Dual-Core &mdash; FreeRTOS Task Map</text>
+
+  <!-- Core 0 -->
+  <rect x="30" y="45" width="500" height="455" rx="10" fill="#42a5f510" stroke="#42a5f5" stroke-width="2"/>
+  <text x="280" y="68" text-anchor="middle" fill="#42a5f5" font-size="13" font-weight="bold">PRO_CPU (Core 0) &mdash; Protocol</text>
+
+  <!-- Core 1 -->
+  <rect x="570" y="45" width="500" height="455" rx="10" fill="#66bb6a10" stroke="#66bb6a" stroke-width="2"/>
+  <text x="820" y="68" text-anchor="middle" fill="#66bb6a" font-size="13" font-weight="bold">APP_CPU (Core 1) &mdash; Application</text>
+
+  <!-- ===== CORE 0 TASKS ===== -->
+
+  <!-- WiFi Task (system) -->
+  <rect x="50" y="85" width="220" height="55" rx="6" fill="#4a148c30" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="60" y="102" fill="#ce93d8" font-size="11" font-weight="bold">wifi (ESP-IDF)</text>
+  <text x="60" y="117" fill="#ba68c8" font-size="9">Prio: 23 | Stack: 3584</text>
+  <text x="60" y="130" fill="#9c27b0" font-size="8">WiFi стек, 802.11, шифрование</text>
+
+  <!-- lwIP Task -->
+  <rect x="290" y="85" width="220" height="55" rx="6" fill="#4a148c30" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="300" y="102" fill="#ce93d8" font-size="11" font-weight="bold">tiT (lwIP TCP/IP)</text>
+  <text x="300" y="117" fill="#ba68c8" font-size="9">Prio: 18 | Stack: 3072</text>
+  <text x="300" y="130" fill="#9c27b0" font-size="8">TCP/IP стек, DHCP, DNS</text>
+
+  <!-- SysTick / esp_timer -->
+  <rect x="50" y="155" width="220" height="55" rx="6" fill="#4a148c30" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="60" y="172" fill="#ce93d8" font-size="11" font-weight="bold">esp_timer</text>
+  <text x="60" y="187" fill="#ba68c8" font-size="9">Prio: 22 | Stack: 3584</text>
+  <text x="60" y="200" fill="#9c27b0" font-size="8">Высокоточный таймер (мкс)</text>
+
+  <!-- Tmr Svc -->
+  <rect x="290" y="155" width="220" height="55" rx="6" fill="#4a148c30" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="300" y="172" fill="#ce93d8" font-size="11" font-weight="bold">Tmr Svc</text>
+  <text x="300" y="187" fill="#ba68c8" font-size="9">Prio: 1 | Stack: 2048 words</text>
+  <text x="300" y="200" fill="#9c27b0" font-size="8">FreeRTOS software timers</text>
+
+  <!-- IDLE0 -->
+  <rect x="50" y="225" width="460" height="40" rx="6" fill="#37474f30" stroke="#78909c" stroke-width="1"/>
+  <text x="280" y="250" text-anchor="middle" fill="#90a4ae" font-size="10">IDLE0 (Prio: 0 | Stack: 1536) &mdash; WDT, sleep, power mgmt</text>
+
+  <!-- ===== CORE 1 TASKS ===== -->
+
+  <!-- MAIN TASK (our app) -->
+  <rect x="590" y="85" width="460" height="310" rx="8" fill="#ff980020" stroke="#ff9800" stroke-width="2.5"/>
+  <text x="820" y="108" text-anchor="middle" fill="#ff9800" font-size="13" font-weight="bold">main (app_main)</text>
+  <text x="820" y="124" text-anchor="middle" fill="#ffcc80" font-size="10">Prio: 1 | Stack: 3584 bytes | Core 1</text>
+
+  <!-- Main loop internals -->
+  <rect x="610" y="140" width="200" height="42" rx="5" fill="#1b5e2030" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="710" y="157" text-anchor="middle" fill="#a5d6a7" font-size="10" font-weight="bold">canManager.loop()</text>
+  <text x="710" y="172" text-anchor="middle" fill="#81c784" font-size="8">TWAI receive (32-frame FIFO)</text>
+
+  <rect x="830" y="140" width="200" height="42" rx="5" fill="#4a148c30" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="930" y="157" text-anchor="middle" fill="#ce93d8" font-size="10" font-weight="bold">wifi_manager_loop()</text>
+  <text x="930" y="172" text-anchor="middle" fill="#ba68c8" font-size="8">TCP accept/poll/send</text>
+
+  <rect x="610" y="195" width="200" height="42" rx="5" fill="#42a5f520" stroke="#42a5f5" stroke-width="1.5"/>
+  <text x="710" y="212" text-anchor="middle" fill="#90caf9" font-size="10" font-weight="bold">GVRET serialize</text>
+  <text x="710" y="227" text-anchor="middle" fill="#64b5f6" font-size="8">CAN frame &rarr; binary</text>
+
+  <rect x="830" y="195" width="200" height="42" rx="5" fill="#ffab4020" stroke="#ffab40" stroke-width="1.5"/>
+  <text x="930" y="212" text-anchor="middle" fill="#ffe0b2" font-size="10" font-weight="bold">Serial console</text>
+  <text x="930" y="227" text-anchor="middle" fill="#ffcc80" font-size="8">UART 115200, max 128 byte/iter</text>
+
+  <rect x="610" y="250" width="420" height="42" rx="5" fill="#ff525220" stroke="#ff5252" stroke-width="1.5"/>
+  <text x="820" y="267" text-anchor="middle" fill="#ff8a80" font-size="10" font-weight="bold">WiFi TX buffer flush</text>
+  <text x="820" y="282" text-anchor="middle" fill="#ef9a9a" font-size="8">2048 byte buffer &rarr; TCP send every 20 ms</text>
+
+  <rect x="610" y="305" width="420" height="42" rx="5" fill="#1a237e30" stroke="#5c6bc0" stroke-width="1.5"/>
+  <text x="820" y="322" text-anchor="middle" fill="#9fa8da" font-size="10" font-weight="bold">UDP beacon broadcast</text>
+  <text x="820" y="337" text-anchor="middle" fill="#7986cb" font-size="8">0x1C 0xEF 0xAC 0xED &rarr; port 17222 every 1000 ms</text>
+
+  <!-- vTaskDelay -->
+  <rect x="610" y="358" width="420" height="25" rx="4" fill="#78909c20" stroke="#78909c" stroke-width="1"/>
+  <text x="820" y="375" text-anchor="middle" fill="#b0bec5" font-size="10">vTaskDelay(1 ms) &mdash; yield to scheduler</text>
+
+  <!-- IDLE1 -->
+  <rect x="590" y="410" width="460" height="40" rx="6" fill="#37474f30" stroke="#78909c" stroke-width="1"/>
+  <text x="820" y="435" text-anchor="middle" fill="#90a4ae" font-size="10">IDLE1 (Prio: 0 | Stack: 1536) &mdash; WDT, sleep</text>
+
+  <!-- ===== COMMON BOTTOM ===== -->
+  <rect x="30" y="465" width="1040" height="25" rx="4" fill="#ffffff08"/>
+  <text x="550" y="482" text-anchor="middle" fill="#888" font-size="10">FreeRTOS Kernel | Tick: 1000 Hz (1 ms) | Preemptive | configMAX_PRIORITIES: 25 | Heap: ~320 KB free</text>
+
+  <!-- Legend -->
+  <rect x="50" y="280" width="12" height="12" rx="2" fill="#ab47bc30" stroke="#ab47bc" stroke-width="1"/>
+  <text x="68" y="290" fill="#ce93d8" font-size="9">Системные задачи ESP-IDF</text>
+  <rect x="50" y="298" width="12" height="12" rx="2" fill="#ff980020" stroke="#ff9800" stroke-width="1"/>
+  <text x="68" y="308" fill="#ffcc80" font-size="9">Наш код (app_main)</text>
+  <rect x="50" y="316" width="12" height="12" rx="2" fill="#78909c20" stroke="#78909c" stroke-width="1"/>
+  <text x="68" y="326" fill="#b0bec5" font-size="9">Idle задачи</text>
+
+  <!-- Arrow showing loop cycle -->
+  <path d="M1060,160 Q1080,260 1060,370" fill="none" stroke="#ff9800" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="1075" y="265" fill="#ff9800" font-size="10" font-weight="bold" transform="rotate(90,1075,265)">~1 ms цикл</text>
+</svg>
+</div>
+
+<div class="info"><strong>Однопоточная архитектура:</strong> весь пользовательский код выполняется в одной задаче <code>app_main</code> на Core 1. Собственные задачи (xTaskCreate) не создаются. Системные задачи WiFi/lwIP работают на Core 0 автоматически.</div>
+
+<!-- ====== TASK TABLE ====== -->
+<h2>Все задачи в системе</h2>
+<table>
+<tr><th>Задача</th><th>Приоритет</th><th>Стек</th><th>Ядро</th><th>Источник</th><th>Назначение</th></tr>
+<tr>
+  <td class="sys" style="font-weight:bold">wifi</td>
+  <td>23 (высший)</td><td>3584 B</td><td class="core0">Core 0</td>
+  <td>ESP-IDF</td><td>WiFi стек: сканирование, подключение, шифрование WPA2, управление AP</td>
+</tr>
+<tr>
+  <td class="sys" style="font-weight:bold">esp_timer</td>
+  <td>22</td><td>3584 B</td><td class="core0">Core 0</td>
+  <td>ESP-IDF</td><td>Высокоточные таймеры (esp_timer_get_time), колбэки</td>
+</tr>
+<tr>
+  <td class="sys" style="font-weight:bold">tiT (lwIP)</td>
+  <td>18</td><td>3072 B</td><td class="core0">Core 0</td>
+  <td>ESP-IDF</td><td>TCP/IP стек: сокеты, DHCP-сервер, IP-маршрутизация</td>
+</tr>
+<tr>
+  <td class="app" style="font-weight:bold">main (app_main)</td>
+  <td>1</td><td>3584 B</td><td class="core1">Core 1</td>
+  <td>Наш код</td><td>Главный цикл: TWAI CAN receive, GVRET, WiFi I/O, Serial</td>
+</tr>
+<tr>
+  <td class="sys">Tmr Svc</td>
+  <td>1</td><td>2048 words</td><td>Любое</td>
+  <td>FreeRTOS</td><td>Программные таймеры FreeRTOS (не используются нами)</td>
+</tr>
+<tr>
+  <td class="idle">IDLE0</td>
+  <td>0 (низший)</td><td>1536 B</td><td class="core0">Core 0</td>
+  <td>FreeRTOS</td><td>Watchdog, power management, yield</td>
+</tr>
+<tr>
+  <td class="idle">IDLE1</td>
+  <td>0 (низший)</td><td>1536 B</td><td class="core1">Core 1</td>
+  <td>FreeRTOS</td><td>Watchdog, yield (запускается когда main делает vTaskDelay)</td>
+</tr>
+</table>
+
+<!-- ====== MAIN LOOP ====== -->
+<h2>Главный цикл (app_main)</h2>
+
+<h3>Инициализация (выполняется один раз)</h3>
+<pre><span style="color:#ab47bc">extern "C" void</span> <span style="color:#ff9800;font-weight:bold">app_main</span>(<span style="color:#ab47bc">void</span>) {
+    uart_serial_init();           <span style="color:#888">// UART0 115200 8N1</span>
+    app_init_gpio();              <span style="color:#888">// LED GPIO2 как выход</span>
+    <span style="color:#888">// ... логирование chip info ...</span>
+    nvs_flash_init();             <span style="color:#888">// Non-Volatile Storage (настройки)</span>
+    load_settings();              <span style="color:#888">// CAN 500K, WiFi AP, GVRET mode</span>
+    canManager.setup();           <span style="color:#888">// TWAI driver install + start (GPIO 4 TX, 5 RX)</span>
+    <span style="color:#42a5f5">vTaskDelay</span>(pdMS_TO_TICKS(<span style="color:#ffab40">250</span>));  <span style="color:#888">// ждём стабилизации TWAI</span>
+    wifi_manager_setup();         <span style="color:#888">// WiFi AP + TCP:23 + UDP:17222</span>
+    ...
+}</pre>
+
+<h3>Бесконечный цикл (polling)</h3>
+<pre><span style="color:#42a5f5">uint32_t</span> last_flush = (<span style="color:#42a5f5">uint32_t</span>)(esp_timer_get_time() / <span style="color:#ffab40">1000</span>);
+
+<span style="color:#ab47bc">for</span> (;;) {                              <span style="color:#888">// бесконечный цикл</span>
+    <span style="color:#66bb6a;font-weight:bold">canManager.loop();</span>                  <span style="color:#888">// 1. TWAI receive → read CAN frames (32-frame FIFO)</span>
+                                         <span style="color:#888">//    → displayFrame() → GVRET serialize</span>
+
+    <span style="color:#ab47bc;font-weight:bold">wifi_manager_loop();</span>                <span style="color:#888">// 2. accept clients, poll TCP recv</span>
+                                         <span style="color:#888">//    → processIncomingByte() (GVRET RX)</span>
+                                         <span style="color:#888">//    → UDP beacon every 1000 ms</span>
+
+    <span style="color:#888">// 3. WiFi TX: flush buffer if full or 20ms elapsed</span>
+    <span style="color:#42a5f5">uint32_t</span> now = (<span style="color:#42a5f5">uint32_t</span>)(esp_timer_get_time() / <span style="color:#ffab40">1000</span>);
+    <span style="color:#ab47bc">if</span> (now - last_flush >= <span style="color:#ffab40">20</span>) {       <span style="color:#888">// SER_BUFF_FLUSH_INTERVAL = 20 ms</span>
+        wifi_manager_send_buffered_data();
+        last_flush = now;
+    }
+
+    <span style="color:#888">// 4. Serial: read up to 128 bytes from UART</span>
+    <span style="color:#ab47bc">for</span> (<span style="color:#42a5f5">int</span> i = <span style="color:#ffab40">0</span>; i < <span style="color:#ffab40">128</span>; i++) {
+        <span style="color:#ab47bc">if</span> (!uart_serial_read_byte(&amp;b)) <span style="color:#ab47bc">break</span>;
+        serialGVRET.processIncomingByte(b);
+    }
+
+    <span style="color:#42a5f5;font-weight:bold">vTaskDelay</span>(pdMS_TO_TICKS(<span style="color:#ffab40">1</span>));       <span style="color:#888">// 5. yield → 1ms → IDLE1 → watchdog</span>
+}</pre>
+
+<!-- ====== TIMING DIAGRAM ====== -->
+<h2>Тайминг одной итерации главного цикла</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 1000 280" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="1000" height="280" fill="#0d0d0d"/>
+
+  <!-- Time axis -->
+  <line x1="50" y1="230" x2="950" y2="230" stroke="#ffffff30" stroke-width="1"/>
+  <text x="50" y="250" fill="#888" font-size="9">0 мкс</text>
+  <text x="200" y="250" fill="#888" font-size="9">~30 мкс</text>
+  <text x="380" y="250" fill="#888" font-size="9">~50 мкс</text>
+  <text x="520" y="250" fill="#888" font-size="9">~55 мкс</text>
+  <text x="620" y="250" fill="#888" font-size="9">~60 мкс</text>
+  <text x="700" y="250" fill="#888" font-size="9">~65 мкс</text>
+  <text x="950" y="250" fill="#888" font-size="9">1000 мкс</text>
+
+  <!-- Title -->
+  <text x="500" y="25" text-anchor="middle" fill="#00e5ff" font-size="12" font-weight="bold">Одна итерация for(;;) на Core 1 &mdash; ~1 мс</text>
+
+  <!-- canManager.loop() -->
+  <rect x="50" y="40" width="150" height="60" rx="5" fill="#1b5e2030" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="125" y="60" text-anchor="middle" fill="#a5d6a7" font-size="10" font-weight="bold">canManager.loop()</text>
+  <text x="125" y="77" text-anchor="middle" fill="#81c784" font-size="8">twai_receive() non-blocking</text>
+  <text x="125" y="92" text-anchor="middle" fill="#66bb6a" font-size="8">~5 мкс (TWAI FIFO)</text>
+
+  <!-- wifi_manager_loop() -->
+  <rect x="210" y="40" width="160" height="60" rx="5" fill="#4a148c30" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="290" y="60" text-anchor="middle" fill="#ce93d8" font-size="10" font-weight="bold">wifi_manager_loop()</text>
+  <text x="290" y="77" text-anchor="middle" fill="#ba68c8" font-size="8">accept + poll (non-block)</text>
+  <text x="290" y="92" text-anchor="middle" fill="#ab47bc" font-size="8">~20 мкс</text>
+
+  <!-- GVRET serialize -->
+  <rect x="380" y="40" width="130" height="60" rx="5" fill="#42a5f520" stroke="#42a5f5" stroke-width="1.5"/>
+  <text x="445" y="60" text-anchor="middle" fill="#90caf9" font-size="10" font-weight="bold">GVRET pack</text>
+  <text x="445" y="77" text-anchor="middle" fill="#64b5f6" font-size="8">serialize → buffer</text>
+  <text x="445" y="92" text-anchor="middle" fill="#42a5f5" font-size="8">~5 мкс</text>
+
+  <!-- WiFi flush (conditional) -->
+  <rect x="520" y="40" width="90" height="60" rx="5" fill="#ff525220" stroke="#ff5252" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="565" y="60" text-anchor="middle" fill="#ff8a80" font-size="9" font-weight="bold">flush?</text>
+  <text x="565" y="77" text-anchor="middle" fill="#ef9a9a" font-size="8">TCP send</text>
+  <text x="565" y="92" text-anchor="middle" fill="#ff5252" font-size="8">~5 мкс</text>
+  <text x="565" y="112" text-anchor="middle" fill="#888" font-size="7">каждые 20 ms</text>
+
+  <!-- Serial -->
+  <rect x="620" y="40" width="80" height="60" rx="5" fill="#ffab4020" stroke="#ffab40" stroke-width="1.5"/>
+  <text x="660" y="60" text-anchor="middle" fill="#ffe0b2" font-size="9" font-weight="bold">Serial</text>
+  <text x="660" y="77" text-anchor="middle" fill="#ffcc80" font-size="8">UART read</text>
+  <text x="660" y="92" text-anchor="middle" fill="#ffab40" font-size="8">~5 мкс</text>
+
+  <!-- vTaskDelay -->
+  <rect x="710" y="40" width="240" height="60" rx="5" fill="#78909c20" stroke="#78909c" stroke-width="1.5"/>
+  <text x="830" y="60" text-anchor="middle" fill="#b0bec5" font-size="11" font-weight="bold">vTaskDelay(1 ms)</text>
+  <text x="830" y="77" text-anchor="middle" fill="#90a4ae" font-size="9">CPU отдан планировщику &rarr; IDLE1</text>
+  <text x="830" y="92" text-anchor="middle" fill="#78909c" font-size="8">~935 мкс (остаток до 1 ms tick)</text>
+
+  <!-- Arrows -->
+  <line x1="200" y1="70" x2="208" y2="70" stroke="#ffffff40" stroke-width="1"/>
+  <line x1="370" y1="70" x2="378" y2="70" stroke="#ffffff40" stroke-width="1"/>
+  <line x1="510" y1="70" x2="518" y2="70" stroke="#ffffff40" stroke-width="1"/>
+  <line x1="610" y1="70" x2="618" y2="70" stroke="#ffffff40" stroke-width="1"/>
+  <line x1="700" y1="70" x2="708" y2="70" stroke="#ffffff40" stroke-width="1"/>
+
+  <!-- CPU usage bar -->
+  <text x="50" y="145" fill="#888" font-size="10">Загрузка CPU Core 1:</text>
+  <rect x="50" y="155" width="900" height="20" rx="4" fill="#ffffff10"/>
+  <rect x="50" y="155" width="60" height="20" rx="4" fill="#66bb6a80"/>
+  <rect x="110" y="155" width="10" height="20" fill="#ab47bc80"/>
+  <rect x="120" y="155" width="5" height="20" fill="#42a5f580"/>
+  <rect x="125" y="155" width="5" height="20" fill="#ff525280"/>
+  <rect x="130" y="155" width="5" height="20" fill="#ffab4080"/>
+  <rect x="135" y="155" width="815" height="20" rx="4" fill="#78909c30"/>
+  <text x="500" y="170" text-anchor="middle" fill="#90a4ae" font-size="10">IDLE (~93%)</text>
+  <text x="90" y="170" text-anchor="middle" fill="#a5d6a7" font-size="8">CAN</text>
+
+  <!-- Usage summary -->
+  <text x="50" y="205" fill="#66bb6a" font-size="10">Активная работа: ~40 мкс (~4%)</text>
+  <text x="400" y="205" fill="#78909c" font-size="10">Idle: ~960 мкс (~96%)</text>
+  <text x="700" y="205" fill="#ff9800" font-size="10">Итого: ~1 мс / итерация</text>
+</svg>
+</div>
+
+<div class="ok"><strong>CPU загружен всего ~4%!</strong> Двухъядерный ESP32-S3 используется минимально. Core 0 занят системными задачами WiFi/lwIP. Core 1 большую часть времени простаивает в IDLE. TWAI работает аппаратно &mdash; минимальная нагрузка на CPU. Есть огромный запас для дополнительных задач.</div>
+
+<!-- ====== VTASKDELAY ====== -->
+<h2>Использование vTaskDelay в проекте</h2>
+<table>
+<tr><th>Файл</th><th>Строка</th><th>Задержка</th><th>Контекст</th><th>Зачем</th></tr>
+<tr>
+  <td><code>main.cpp</code></td><td>~103</td><td>250 мс</td>
+  <td>Инициализация</td>
+  <td>Ожидание стабилизации TWAI после запуска</td>
+</tr>
+<tr>
+  <td><code>main.cpp</code></td><td>~127</td><td style="color:#00e5ff;font-weight:bold">1 мс</td>
+  <td>Главный цикл</td>
+  <td>Yield планировщику, кормление watchdog через IDLE1</td>
+</tr>
+<tr>
+  <td><code>esp32_can_idf.cpp</code></td><td>~55</td><td>10 мс</td>
+  <td>disable()</td>
+  <td>Время на остановку и деинициализацию TWAI драйвера</td>
+</tr>
+<tr>
+  <td><code>esp32_can_idf.cpp</code></td><td>~112</td><td>10 мс (timeout)</td>
+  <td>sendFrame()</td>
+  <td>Максимальное ожидание twai_transmit() при занятой шине</td>
+</tr>
+</table>
+
+<div class="info"><strong>vTaskDelay(pdMS_TO_TICKS(1))</strong> &mdash; отдаёт CPU планировщику FreeRTOS минимум на 1 тик (1 мс при HZ=1000). Это позволяет IDLE задаче сбросить watchdog таймер и выполнить power management. Без этого вызова ESP32 перезагрузится по watchdog!</div>
+
+<!-- ====== FREERTOS CONFIG ====== -->
+<h2>Конфигурация FreeRTOS (sdkconfig)</h2>
+
+<div class="three-col">
+<div class="card">
+<h3>Ядро</h3>
+<table>
+<tr><td>Тик</td><td style="color:#00e5ff;font-weight:bold">1000 Гц (1 мс)</td></tr>
+<tr><td>Ядра</td><td>2 (dual-core)</td></tr>
+<tr><td>Планировщик</td><td>Preemptive</td></tr>
+<tr><td>Макс. приоритетов</td><td>25</td></tr>
+<tr><td>Unicore</td><td>Нет (оба ядра)</td></tr>
+<tr><td>Time slicing</td><td>Вкл</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>Стеки</h3>
+<table>
+<tr><td>Main task</td><td>3584 байт</td></tr>
+<tr><td>IDLE task</td><td>1536 байт</td></tr>
+<tr><td>ISR stack</td><td>1536 байт</td></tr>
+<tr><td>Timer task</td><td>2048 words</td></tr>
+<tr><td>esp_timer</td><td>3584 байт</td></tr>
+<tr><td>Имя задачи макс.</td><td>16 символов</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>Защита</h3>
+<table>
+<tr><td>Stack overflow</td><td>Canary (вкл)</td></tr>
+<tr><td>Static alloc</td><td>Поддерживается</td></tr>
+<tr><td>Queue registry</td><td>Отключен (0)</td></tr>
+<tr><td>Task notifications</td><td>1 на задачу</td></tr>
+<tr><td>Watchdog</td><td>IDLE task WDT</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ====== SYNCHRONIZATION ====== -->
+<h2>Синхронизация и межзадачное взаимодействие</h2>
+
+<div class="warn"><strong>В проекте не используются:</strong> очереди (xQueue), семафоры (xSemaphore), мьютексы (xMutex), event groups, task notifications. Вся коммуникация через глобальные переменные в одном потоке.</div>
+
+<table>
+<tr><th>Механизм FreeRTOS</th><th>Статус</th><th>Причина</th></tr>
+<tr><td>xTaskCreate / xTaskCreatePinnedToCore</td><td style="color:#ff5252">Не используется</td><td>Весь код в одной задаче app_main</td></tr>
+<tr><td>xQueueCreate / xQueueSend</td><td style="color:#ff5252">Не используется</td><td>Нет межзадачной передачи данных</td></tr>
+<tr><td>xSemaphoreCreate / xMutexCreate</td><td style="color:#ff5252">Не используется</td><td>Нет разделяемых ресурсов между задачами</td></tr>
+<tr><td>xEventGroupCreate</td><td style="color:#ff5252">Не используется</td><td>Нет событийной модели</td></tr>
+<tr><td>xTaskNotify</td><td style="color:#ff5252">Не используется</td><td>Нет уведомлений между задачами</td></tr>
+<tr><td>xTimerCreate (software timers)</td><td style="color:#ff5252">Не используется</td><td>Тайминг через esp_timer_get_time()</td></tr>
+<tr><td style="color:#66bb6a;font-weight:bold">vTaskDelay</td><td style="color:#66bb6a">Используется</td><td>Yield + watchdog + тайминг</td></tr>
+<tr><td style="color:#66bb6a;font-weight:bold">pdMS_TO_TICKS</td><td style="color:#66bb6a">Используется</td><td>Конвертация мс в тики</td></tr>
+<tr><td style="color:#66bb6a;font-weight:bold">esp_timer_get_time</td><td style="color:#66bb6a">Используется</td><td>Микросекундные timestamps для CAN фреймов и flush</td></tr>
+</table>
+
+<!-- ====== GLOBAL DATA ====== -->
+<h2>Глобальные объекты (разделяемое состояние)</h2>
+<pre><span style="color:#888">// config_idf.c &mdash; глобальные экземпляры</span>
+
+<span style="color:#00e5ff">EEPROMSettings</span> <span style="color:#66bb6a">settings</span>;          <span style="color:#888">// CAN speed, WiFi SSID, режим и т.д.</span>
+<span style="color:#00e5ff">SystemSettings</span> <span style="color:#66bb6a">SysSettings</span>;       <span style="color:#888">// numBuses, WiFi client socket</span>
+
+<span style="color:#00e5ff">GVRET_Comm_Handler</span> <span style="color:#66bb6a">serialGVRET</span>;  <span style="color:#888">// GVRET для UART (serial console)</span>
+<span style="color:#00e5ff">GVRET_Comm_Handler</span> <span style="color:#66bb6a">wifiGVRET</span>;    <span style="color:#888">// GVRET для WiFi/TCP (SavvyCAN)</span>
+
+<span style="color:#00e5ff">CANManager</span> <span style="color:#66bb6a">canManager</span>;            <span style="color:#888">// управление CAN шиной и фреймами</span>
+
+<span style="color:#888">// Буферы (static arrays)</span>
+<span style="color:#42a5f5">uint8_t</span> wifiTxBuffer[<span style="color:#ffab40">2048</span>];       <span style="color:#888">// WiFi TX буфер</span>
+<span style="color:#42a5f5">uint8_t</span> serialBuffer[<span style="color:#ffab40">1024</span>];      <span style="color:#888">// Serial TX буфер</span></pre>
+
+<div class="info">Все объекты доступны из одного потока &mdash; race conditions невозможны. Но если добавить вторую задачу (например, CAN polling на отдельном ядре), потребуются мьютексы для <code>canManager</code> и буферов.</div>
+
+<!-- ====== MEMORY MAP ====== -->
+<h2>Карта памяти</h2>
+<table>
+<tr><th>Область</th><th>Размер</th><th>Назначение</th></tr>
+<tr><td>Flash</td><td>4 МБ</td><td>Прошивка + partition table</td></tr>
+<tr><td>PSRAM</td><td>8 МБ (OPI)</td><td>Доступна, но не используется приложением</td></tr>
+<tr><td>SRAM (Internal)</td><td>512 КБ</td><td>Стеки задач + heap + статические переменные</td></tr>
+<tr><td style="color:#ff9800">Main task stack</td><td>3584 байт</td><td>Все локальные переменные app_main</td></tr>
+<tr><td>WiFi TX buffer</td><td>2048 байт</td><td>Буфер отправки TCP (глобальный)</td></tr>
+<tr><td>Serial buffer</td><td>1024 байт</td><td>Буфер UART GVRET (глобальный)</td></tr>
+<tr><td>WiFi RX buffers</td><td>~42 КБ</td><td>10 static + 32 dynamic RX буфера (sdkconfig)</td></tr>
+<tr><td style="color:#66bb6a">Free heap (приблиз.)</td><td>~280-320 КБ</td><td>Доступно для malloc / новых задач</td></tr>
+</table>
+
+<div class="warn"><strong>Стек main task = 3584 байт.</strong> Это мало! Глубокая рекурсия или большие локальные массивы вызовут stack overflow. Canary-проверка включена &mdash; при переполнении ESP32 покажет паник-лог. При добавлении функционала увеличьте <code>CONFIG_ESP_MAIN_TASK_STACK_SIZE</code>.</div>
+
+<!-- ====== SYSTEM TASKS ON CORE 0 ====== -->
+<h2>Системные задачи ESP-IDF (Core 0)</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 800 250" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="800" height="250" fill="#0d0d0d"/>
+
+  <!-- Priority scale -->
+  <text x="30" y="25" fill="#888" font-size="10">Приоритет:</text>
+  <line x1="30" y1="40" x2="30" y2="220" stroke="#ffffff20" stroke-width="1"/>
+
+  <!-- WiFi (highest) -->
+  <text x="25" y="57" fill="#888" font-size="9" text-anchor="end" dominant-baseline="middle">23</text>
+  <rect x="40" y="42" width="700" height="30" rx="4" fill="#ab47bc20" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="50" y="57" fill="#ce93d8" font-size="11" font-weight="bold" dominant-baseline="middle">wifi</text>
+  <text x="120" y="57" fill="#ba68c8" font-size="9" dominant-baseline="middle">| WiFi стек (обработка 802.11 пакетов, WPA2, beacon, channel mgmt)</text>
+
+  <!-- esp_timer -->
+  <text x="25" y="97" fill="#888" font-size="9" text-anchor="end" dominant-baseline="middle">22</text>
+  <rect x="40" y="82" width="700" height="30" rx="4" fill="#ab47bc20" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="50" y="97" fill="#ce93d8" font-size="11" font-weight="bold" dominant-baseline="middle">esp_timer</text>
+  <text x="140" y="97" fill="#ba68c8" font-size="9" dominant-baseline="middle">| Высокоточные колбэки (esp_timer_get_time = микросекунды)</text>
+
+  <!-- lwIP -->
+  <text x="25" y="137" fill="#888" font-size="9" text-anchor="end" dominant-baseline="middle">18</text>
+  <rect x="40" y="122" width="700" height="30" rx="4" fill="#ab47bc20" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="50" y="137" fill="#ce93d8" font-size="11" font-weight="bold" dominant-baseline="middle">tiT (lwIP)</text>
+  <text x="140" y="137" fill="#ba68c8" font-size="9" dominant-baseline="middle">| TCP/IP стек (сокеты, DHCP-сервер AP, IP routing)</text>
+
+  <!-- App main on Core 1 (shown for comparison) -->
+  <text x="25" y="177" fill="#888" font-size="9" text-anchor="end" dominant-baseline="middle">1</text>
+  <rect x="40" y="162" width="700" height="30" rx="4" fill="#ff980020" stroke="#ff9800" stroke-width="1.5"/>
+  <text x="50" y="177" fill="#ffcc80" font-size="11" font-weight="bold" dominant-baseline="middle">main (Core 1)</text>
+  <text x="170" y="177" fill="#ff9800" font-size="9" dominant-baseline="middle">| Наш код: CAN + GVRET + WiFi I/O + Serial</text>
+
+  <!-- IDLE -->
+  <text x="25" y="217" fill="#888" font-size="9" text-anchor="end" dominant-baseline="middle">0</text>
+  <rect x="40" y="202" width="700" height="30" rx="4" fill="#37474f20" stroke="#78909c" stroke-width="1"/>
+  <text x="50" y="217" fill="#90a4ae" font-size="11" dominant-baseline="middle">IDLE0 + IDLE1</text>
+  <text x="200" y="217" fill="#78909c" font-size="9" dominant-baseline="middle">| Watchdog reset, light sleep, yield</text>
+</svg>
+</div>
+
+<div class="info"><strong>Preemptive scheduling:</strong> задача WiFi (prio 23) может прервать наш main (prio 1) в любой момент. Это означает, что при активной WiFi передаче обработка CAN может быть задержана на несколько мкс. На практике это не проблема &mdash; TWAI имеет аппаратный FIFO из 32 фреймов, что даёт запас ~4 мс при 8000 фр/с.</div>
+
+<!-- ====== INCLUDES ====== -->
+<h2>FreeRTOS в исходном коде</h2>
+<pre><span style="color:#888">// Только 2 файла включают FreeRTOS:</span>
+
+<span style="color:#888">// main.cpp</span>
+<span style="color:#ab47bc">#include</span> <span style="color:#66bb6a">"freertos/FreeRTOS.h"</span>
+<span style="color:#ab47bc">#include</span> <span style="color:#66bb6a">"freertos/task.h"</span>
+
+<span style="color:#888">// esp32_can_idf.cpp</span>
+<span style="color:#ab47bc">#include</span> <span style="color:#66bb6a">"freertos/FreeRTOS.h"</span>
+<span style="color:#ab47bc">#include</span> <span style="color:#66bb6a">"freertos/task.h"</span>
+<span style="color:#ab47bc">#include</span> <span style="color:#66bb6a">"driver/twai.h"</span>
+
+<span style="color:#888">// Используемые API:</span>
+vTaskDelay(pdMS_TO_TICKS(ms))    <span style="color:#888">// задержка в миллисекундах</span>
+portTICK_PERIOD_MS               <span style="color:#888">// = 1 (при HZ=1000)</span>
+esp_timer_get_time()             <span style="color:#888">// микросекунды (не FreeRTOS, а ESP-IDF)</span>
+twai_receive(&amp;msg, 0)            <span style="color:#888">// неблокирующее чтение CAN фрейма из TWAI FIFO</span>
+twai_transmit(&amp;msg, pdMS_TO_TICKS(10)) <span style="color:#888">// отправка фрейма с таймаутом 10 мс</span></pre>
+
+<!-- ====== IMPROVEMENT IDEAS ====== -->
+<h2>Потенциальные улучшения архитектуры</h2>
+
+<table class="table-compact">
+<tr><th>Улучшение</th><th>Как</th><th>Зачем</th></tr>
+<tr>
+  <td style="color:#00e5ff">CAN на отдельном ядре</td>
+  <td><code>xTaskCreatePinnedToCore(can_task, ..., 0)</code></td>
+  <td>TWAI receive на Core 0 без прерываний от WiFi. Гарантия обработки при высокой нагрузке</td>
+</tr>
+<tr>
+  <td style="color:#00e5ff">Очередь CAN фреймов</td>
+  <td><code>xQueueCreate(64, sizeof(CAN_FRAME))</code></td>
+  <td>Буферизация между CAN-задачей и WiFi-задачей. Развязка по времени</td>
+</tr>
+<tr>
+  <td style="color:#00e5ff">TWAI алерты</td>
+  <td><code>twai_reconfigure_alerts()</code> + обработка</td>
+  <td>Уведомления о Bus-Off, переполнении FIFO, ошибках &mdash; для диагностики</td>
+</tr>
+<tr>
+  <td style="color:#00e5ff">Увеличить стек main</td>
+  <td><code>CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192</code></td>
+  <td>Защита от stack overflow при добавлении нового кода</td>
+</tr>
+<tr>
+  <td style="color:#00e5ff">Использовать PSRAM</td>
+  <td><code>heap_caps_malloc(size, MALLOC_CAP_SPIRAM)</code></td>
+  <td>8 МБ PSRAM доступны для больших буферов и логирования</td>
+</tr>
+</table>
+
+<div class="warn"><strong>Текущая архитектура достаточна</strong> для 500K CAN @ ~3800 фр/с. С TWAI FIFO из 32 фреймов запас существенно больше, чем с внешним SPI контроллером. Оптимизация нужна только при: 1) CAN 1M @ >7000 фр/с, 2) множественных WiFi клиентах, 3) одновременном логировании на SD.</div>
+
+</div>
+</body>
+</html>

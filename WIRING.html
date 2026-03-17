@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Схема подключения — CAN→WiFi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;background:#0a0a0a;color:#e5e5e5;padding:0;font-size:14px;line-height:1.55;font-weight:400}
+:root{--bg:#0a0a0a;--panel:#0d0d0d;--panel2:#141414;--line:#262626;--muted:#737373;--muted2:#525252;--text:#e5e5e5;--text2:#d4d4d4;--white:#fafafa;--g:#22c55e;--r:#ef4444;--b:#3b82f6}
+.nav{display:flex;background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;position:sticky;top:0;z-index:100}
+.nav a{color:var(--muted);text-decoration:none;padding:14px 20px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;position:relative}
+.nav a:hover{color:var(--white)}
+.nav a.active{color:var(--white)}
+.nav a.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--white)}
+.content{padding:32px 24px;max-width:1200px;margin:0 auto}
+h1{font-weight:500;text-align:center;color:var(--white);margin:0 0 8px;font-size:1.15rem;letter-spacing:.10em;text-transform:uppercase}
+h2{font-weight:500;color:var(--white);margin:48px 0 16px;font-size:.98rem;letter-spacing:.12em;text-transform:uppercase;position:relative;padding-bottom:10px}
+h2::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--line)}
+h3{font-weight:600;color:var(--text2);margin:24px 0 10px;font-size:.9rem;letter-spacing:.04em}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:32px;font-size:12px;letter-spacing:.03em}
+.diagram-wrap{background:var(--panel);padding:20px;margin:24px 0;overflow-x:auto;border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.diagram-wrap svg{display:block}
+.diagram-wrap svg rect{rx:0;ry:0}
+.diagram-wrap svg{font-family:'IBM Plex Mono',monospace}
+.legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:16px 0}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.85em}
+.legend-color{width:30px;height:5px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{background:var(--panel2);color:var(--text2);padding:10px 14px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line)}
+td{padding:10px 14px;border:1px solid var(--line);font-size:13px;color:var(--text2)}
+tr:hover td{background:var(--panel2)}
+.warn,.ok,.info,.danger{position:relative;background:var(--panel2);border:1px solid var(--line);padding:12px 16px 12px 22px;margin:16px 0;font-size:13px;color:var(--text2)}
+.warn::before,.ok::before,.info::before,.danger::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+.ok::before{background:var(--g)}
+.info::before{background:var(--b)}
+.danger::before{background:var(--r)}
+.warn::before{background:#f59e0b}
+.step{background:var(--panel);border:1px solid var(--line);padding:12px 16px;margin:10px 0}
+.step-num{display:inline-block;background:var(--panel2);border:1px solid var(--line);color:var(--white);width:26px;height:26px;text-align:center;line-height:26px;font-weight:600;margin-right:8px;font-size:.85em}
+code{background:var(--panel2);padding:2px 6px;font-size:12px;border:1px solid var(--line);color:var(--white)}
+pre{background:var(--panel);padding:16px;font-size:12px;line-height:1.65;border:1px solid var(--line);overflow-x:auto;color:var(--text2)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px}
+.card h3{margin-top:0}
+.tag{display:inline-block;padding:2px 8px;font-size:.8em;margin:2px;border:1px solid var(--line);background:var(--panel2);color:var(--text2)}
+.tag-5v{border-color:var(--r);color:var(--r)}
+.tag-3v{border-color:#f59e0b;color:#f59e0b}
+.tag-gnd{border-color:var(--muted);color:var(--muted)}
+.tag-twai{border-color:var(--b);color:var(--b)}
+.tag-can{border-color:var(--g);color:var(--g)}
+
+/* Firmware config cards: tighter tables */
+.config-grid table{margin:8px 0;font-size:12px}
+.config-grid td{padding:8px 10px;font-size:12px}
+.config-grid th{padding:8px 10px;font-size:11px}
+.config-grid code{font-size:11px}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Главная</a>
+  <a href="wiring.html" class="active">Подключение</a>
+  <a href="signals.html">Сигналы</a>
+  <a href="can_frames.html">CAN фреймы</a>
+  <a href="freertos.html">FreeRTOS</a>
+  <a href="howto.html">HOWTO</a>
+</div>
+<div class="content">
+<h1>Схема подключения</h1>
+<p class="subtitle">ESP32-S3-N16R8 + TJA1050 (standalone) + CANable 3.0 (тестовый стенд) &mdash; ESP32_RET_SD v2.0 TWAI, build 420</p>
+
+<!-- ====== MAIN DIAGRAM ====== -->
+<div class="diagram-wrap">
+<svg viewBox="0 0 1380 890" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="12">
+  <defs>
+    <marker id="aG" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5Z" fill="#66bb6a"/></marker>
+    <marker id="aB" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5Z" fill="#42a5f5"/></marker>
+    <marker id="aC" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5Z" fill="#00e5ff"/></marker>
+    <marker id="aR" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5Z" fill="#ff5252"/></marker>
+    <marker id="aP" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5Z" fill="#ab47bc"/></marker>
+    <marker id="aGr" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5Z" fill="#78909c"/></marker>
+  </defs>
+  <rect width="1380" height="890" fill="#0d0d0d"/>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- ВЕРХНИЙ ЭТАЖ: ПК + CANable 3.0 (имитация автомобиля)          -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- Label -->
+  <text x="260" y="28" text-anchor="middle" fill="#ff9800" font-size="11" font-weight="bold">ТЕСТОВЫЙ СТЕНД (вместо автомобиля)</text>
+
+  <!-- ===== PC ===== -->
+  <rect x="20" y="40" width="160" height="130" rx="8" fill="#1a237e" stroke="#5c6bc0" stroke-width="2"/>
+  <rect x="30" y="50" width="140" height="80" rx="4" fill="#0d1b3e"/>
+  <text x="100" y="78" text-anchor="middle" fill="#00e5ff" font-size="13" font-weight="bold">SavvyCAN</text>
+  <text x="100" y="95" text-anchor="middle" fill="#90caf9" font-size="9">тестовые CAN фреймы</text>
+  <text x="100" y="112" text-anchor="middle" fill="#7986cb" font-size="8">gs_usb / slcan</text>
+  <text x="100" y="155" text-anchor="middle" fill="#9fa8da" font-size="10">Компьютер</text>
+
+  <!-- USB cable: PC → CANable -->
+  <line x1="180" y1="105" x2="340" y2="105" stroke="#78909c" stroke-width="3" marker-end="url(#aGr)"/>
+  <text x="260" y="98" fill="#b0bec5" font-size="9" font-weight="bold">USB-A / USB-C</text>
+
+  <!-- ===== CANable 3.0 (width=200, same as TJA1050, x=340) ===== -->
+  <rect x="340" y="40" width="200" height="130" rx="8" fill="#263238" stroke="#546e7a" stroke-width="2"/>
+  <text x="440" y="62" text-anchor="middle" fill="#e0e0e0" font-size="13" font-weight="bold">CANable 3.0</text>
+  <text x="440" y="78" text-anchor="middle" fill="#90a4ae" font-size="9">STM32F072 + candleLight</text>
+
+  <!-- Blue LED indicator -->
+  <circle cx="370" cy="96" r="5" fill="#42a5f5" opacity=".9"/>
+  <text x="385" y="100" fill="#90caf9" font-size="8">LED (синий)</text>
+  <text x="385" y="112" fill="#64b5f6" font-size="7">моргает при CAN</text>
+
+  <!-- JP1 jumper -->
+  <rect x="470" y="88" width="40" height="14" rx="2" fill="#ffab40" stroke="#ff9800" stroke-width="1"/>
+  <text x="490" y="99" text-anchor="middle" fill="#000" font-size="7" font-weight="bold">JP1</text>
+  <text x="490" y="115" text-anchor="middle" fill="#ffab40" font-size="7">120 Ом терм.</text>
+  <text x="490" y="126" text-anchor="middle" fill="#ff9800" font-size="7" font-weight="bold">ЗАМКНУТЬ!</text>
+
+  <!-- CANable output pins -->
+  <circle cx="410" cy="140" r="4" fill="#78909c"/>
+  <text x="395" y="155" fill="#b0bec5" font-size="9">GND</text>
+  <circle cx="440" cy="140" r="4" fill="#66bb6a"/>
+  <text x="433" y="155" fill="#a5d6a7" font-size="9">CAN_H</text>
+  <circle cx="470" cy="140" r="4" fill="#4caf50"/>
+  <text x="463" y="155" fill="#81c784" font-size="9">CAN_L</text>
+
+  <!-- ══════ CAN wires from CANable down to TJA1050 ══════ -->
+
+  <!-- CANH: CANable → TJA1050 -->
+  <line x1="440" y1="144" x2="440" y2="460" stroke="#66bb6a" stroke-width="3" marker-end="url(#aG)"/>
+  <text x="452" y="220" fill="#a5d6a7" font-size="10" font-weight="bold">CANH</text>
+
+  <!-- CANL: CANable → TJA1050 -->
+  <line x1="470" y1="144" x2="470" y2="490" stroke="#4caf50" stroke-width="3" marker-end="url(#aG)"/>
+  <text x="482" y="250" fill="#81c784" font-size="10" font-weight="bold">CANL</text>
+
+  <!-- GND: CANable → общая шина GND (вертикально вниз) -->
+  <line x1="410" y1="144" x2="410" y2="760" stroke="#78909c" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="398" y="220" fill="#b0bec5" font-size="8" text-anchor="end">GND</text>
+
+  <!-- Separator line -->
+  <line x1="20" y1="185" x2="560" y2="185" stroke="#ff980040" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="290" y="198" text-anchor="middle" fill="#ff980060" font-size="8">- - - вместо автомобиля - - -</text>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- НИЖНИЙ ЭТАЖ: оригинальная схема (сдвинута на +200 по Y)       -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- ===== PowerBank ===== -->
+  <rect x="870" y="40" width="150" height="130" rx="8" fill="#37474f" stroke="#78909c" stroke-width="2"/>
+  <text x="945" y="75" text-anchor="middle" fill="#e0e0e0" font-size="13" font-weight="bold">PowerBank</text>
+  <text x="945" y="95" text-anchor="middle" fill="#b0bec5" font-size="10">5V / 1A+</text>
+  <text x="945" y="115" text-anchor="middle" fill="#90a4ae" font-size="9">любой USB</text>
+  <text x="945" y="155" text-anchor="middle" fill="#ff8a80" font-size="9">питание ESP32</text>
+
+  <!-- USB cable: PowerBank → ESP32 USB-C -->
+  <line x1="945" y1="170" x2="945" y2="330" stroke="#ff5252" stroke-width="3" marker-end="url(#aR)"/>
+  <text x="958" y="210" fill="#ff8a80" font-size="9" font-weight="bold">USB-C</text>
+  <text x="958" y="225" fill="#ff5252" font-size="8">5V питание</text>
+
+  <!-- ===== TJA1050 STANDALONE MODULE ===== -->
+  <rect x="340" y="320" width="200" height="340" rx="10" fill="#0d2137" stroke="#1565c0" stroke-width="2.5"/>
+  <text x="440" y="345" text-anchor="middle" fill="#42a5f5" font-size="14" font-weight="bold">TJA1050</text>
+  <text x="440" y="362" text-anchor="middle" fill="#64b5f6" font-size="10">standalone модуль</text>
+
+  <!-- TJA1050 chip inside -->
+  <rect x="370" y="380" width="140" height="80" rx="6" fill="#1a237e" stroke="#5c6bc0" stroke-width="2"/>
+  <text x="440" y="410" text-anchor="middle" fill="#9fa8da" font-size="13" font-weight="bold">TJA1050</text>
+  <text x="440" y="428" text-anchor="middle" fill="#7986cb" font-size="9">CAN трансивер</text>
+  <text x="440" y="450" text-anchor="middle" fill="#ff9800" font-size="10" font-weight="bold">5V логика</text>
+
+  <!-- CAN side labels -->
+  <text x="360" y="478" fill="#a5d6a7" font-size="9">CANH</text>
+  <text x="360" y="498" fill="#81c784" font-size="9">CANL</text>
+
+  <!-- TX pin (input from ESP32) — same Y as GPIO 4 -->
+  <circle cx="540" cy="470" r="4" fill="#42a5f5"/>
+  <text x="530" y="474" fill="#90caf9" font-size="10" text-anchor="end">TX (вход)</text>
+
+  <!-- RX pin (output to ESP32) — same Y as GPIO 5 -->
+  <circle cx="540" cy="500" r="4" fill="#00e5ff"/>
+  <text x="530" y="504" fill="#80deea" font-size="10" text-anchor="end">RX (выход)</text>
+
+  <!-- VCC/GND pins -->
+  <circle cx="440" cy="610" r="5" fill="#ff5252"/>
+  <text x="440" y="630" text-anchor="middle" fill="#ff8a80" font-size="10" font-weight="bold">VCC 5V</text>
+  <circle cx="500" cy="610" r="5" fill="#78909c"/>
+  <text x="500" y="630" text-anchor="middle" fill="#b0bec5" font-size="10">GND</text>
+
+  <!-- Note: no MCP2515 -->
+  <rect x="360" y="640" width="160" height="15" rx="3" fill="#66bb6a15"/>
+  <text x="440" y="650" text-anchor="middle" fill="#66bb6a" font-size="8">Нет MCP2515, нет SPI, нет кварца</text>
+
+  <!-- ===== TX LINE (direct, safe) — straight ===== -->
+  <line x1="544" y1="470" x2="830" y2="470" stroke="#42a5f5" stroke-width="2.5" marker-end="url(#aB)"/>
+  <text x="680" y="464" fill="#64b5f6" font-size="10" font-weight="bold">TX (напрямую)</text>
+  <text x="680" y="482" fill="#66bb6a" font-size="9">3.3V &rarr; 5V OK (VIH&ge;2.0V)</text>
+
+
+
+  <!-- ===== RX LINE (through divider, dangerous!) — straight ===== -->
+  <line x1="544" y1="500" x2="660" y2="500" stroke="#00e5ff" stroke-width="2.5"/>
+  <text x="590" y="494" fill="#ff5252" font-size="9" font-weight="bold">5V!</text>
+
+  <!-- Voltage divider box -->
+  <rect x="660" y="472" width="75" height="86" rx="6" fill="#0d0d0d" stroke="#ff980060" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="697" y="486" text-anchor="middle" fill="#ffab40" font-size="8" font-weight="bold">ДЕЛИТЕЛЬ</text>
+  <line x1="660" y1="500" x2="673" y2="500" stroke="#00e5ff" stroke-width="1.5"/>
+  <rect x="673" y="494" width="24" height="12" rx="2" fill="#4e342e" stroke="#8d6e63" stroke-width="1"/>
+  <text x="685" y="503" text-anchor="middle" fill="#d7ccc8" font-size="8">1k</text>
+  <line x1="697" y1="500" x2="710" y2="500" stroke="#ccc" stroke-width="1"/>
+  <circle cx="710" cy="500" r="3" fill="#00e5ff"/>
+  <line x1="710" y1="503" x2="710" y2="520" stroke="#ccc" stroke-width="1"/>
+  <rect x="698" y="520" width="24" height="12" rx="2" fill="#4e342e" stroke="#8d6e63" stroke-width="1"/>
+  <text x="710" y="529" text-anchor="middle" fill="#d7ccc8" font-size="8">2k</text>
+  <line x1="710" y1="532" x2="710" y2="550" stroke="#78909c" stroke-width="1.5"/>
+  <text x="710" y="558" text-anchor="middle" fill="#90a4ae" font-size="8">GND</text>
+
+  <!-- RX out of divider to ESP32 — straight -->
+  <line x1="710" y1="500" x2="830" y2="500" stroke="#00e5ff" stroke-width="2.5" marker-end="url(#aC)"/>
+  <text x="775" y="494" fill="#80deea" font-size="9">3.33V</text>
+
+  <!-- Step 3 -->
+  <circle cx="775" cy="516" r="13" fill="#ff9800"/><text x="775" y="521" text-anchor="middle" fill="#000" font-size="12" font-weight="bold">3</text>
+
+  <!-- ===== POWER LINES ===== -->
+  <polyline points="990,630 990,730 440,730 440,615" fill="none" stroke="#ff5252" stroke-width="3" marker-end="url(#aR)"/>
+  <text x="700" y="724" fill="#ff8a80" font-size="11" font-weight="bold">5V (от USB PowerBank)</text>
+  <polyline points="990,655 990,760 500,760 500,615" fill="none" stroke="#78909c" stroke-width="3"/>
+  <text x="700" y="754" fill="#b0bec5" font-size="11" font-weight="bold">GND (общая земля)</text>
+  <polyline points="710,760 710,603" fill="none" stroke="#78909c" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- GND from CANable joins the common GND bus -->
+  <line x1="410" y1="760" x2="500" y2="760" stroke="#78909c" stroke-width="2"/>
+  <circle cx="410" cy="760" r="4" fill="#78909c"/>
+  <text x="450" y="778" text-anchor="middle" fill="#b0bec5" font-size="8">GND CANable &rarr; общая земля</text>
+
+  <!-- ===== ESP32-S3 ===== -->
+  <rect x="830" y="330" width="230" height="370" rx="10" fill="#1a1a1a" stroke="#424242" stroke-width="2.5"/>
+  <rect x="900" y="340" width="50" height="14" rx="4" fill="#333" stroke="#666" stroke-width="1.5"/>
+  <text x="925" y="350" text-anchor="middle" fill="#aaa" font-size="7">USB-C</text>
+  <text x="925" y="368" text-anchor="middle" fill="#999" font-size="9">&uarr; PowerBank &uarr;</text>
+  <rect x="895" y="380" width="65" height="20" rx="3" fill="#212121" stroke="#616161" stroke-width="1"/>
+  <text x="927" y="393" text-anchor="middle" fill="#9e9e9e" font-size="8">AMS1117 3.3V</text>
+
+  <!-- 3.3V line from AMS1117 to 3V3 pin -->
+  <line x1="960" y1="390" x2="1020" y2="390" stroke="#ffab40" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="1020" y1="390" x2="1020" y2="605" stroke="#ffab40" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="1020" y1="605" x2="1055" y2="605" stroke="#ffab40" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+  <!-- TWAI controller block inside ESP32 -->
+  <rect x="850" y="420" width="190" height="80" rx="6" fill="#1a237e30" stroke="#42a5f5" stroke-width="1.5"/>
+  <text x="945" y="440" text-anchor="middle" fill="#90caf9" font-size="11" font-weight="bold">TWAI контроллер</text>
+  <text x="945" y="456" text-anchor="middle" fill="#64b5f6" font-size="9">(встроенный CAN периферия)</text>
+  <text x="945" y="472" text-anchor="middle" fill="#42a5f5" font-size="9">CRC / арбитраж / bit stuffing</text>
+  <text x="945" y="490" text-anchor="middle" fill="#ff9800" font-size="9" font-weight="bold">RX FIFO: 32 фрейма</text>
+
+  <!-- ESP32 main chip -->
+  <rect x="860" y="540" width="170" height="90" rx="4" fill="#263238" stroke="#546e7a" stroke-width="1.5"/>
+  <text x="945" y="575" text-anchor="middle" fill="#90a4ae" font-size="11">ESP32-S3-N16R8</text>
+  <rect x="880" y="595" width="110" height="20" rx="2" fill="#37474f" stroke="#546e7a" stroke-width="1"/>
+  <text x="935" y="608" text-anchor="middle" fill="#607d8b" font-size="8">WiFi Antenna</text>
+
+  <!-- GPIO pins left side -->
+  <circle cx="835" cy="470" r="5" fill="#42a5f5"/>
+  <text x="843" y="458" fill="#90caf9" font-size="10" font-weight="bold">GPIO 4</text>
+  <text x="843" y="480" fill="#64b5f6" font-size="8">TWAI TX</text>
+  <circle cx="835" cy="500" r="5" fill="#00e5ff"/>
+  <text x="843" y="512" fill="#80deea" font-size="10" font-weight="bold">GPIO 5</text>
+  <text x="843" y="524" fill="#80deea" font-size="8">TWAI RX</text>
+
+  <!-- Power pins right side -->
+  <circle cx="1055" cy="630" r="5" fill="#ff5252"/>
+  <text x="1045" y="634" text-anchor="end" fill="#ff8a80" font-size="10" font-weight="bold">5V</text>
+  <line x1="1055" y1="630" x2="990" y2="630" stroke="#ff5252" stroke-width="1" stroke-dasharray="3,2"/>
+  <circle cx="1055" cy="655" r="5" fill="#78909c"/>
+  <text x="1045" y="659" text-anchor="end" fill="#b0bec5" font-size="10">GND</text>
+  <line x1="1055" y1="655" x2="990" y2="655" stroke="#78909c" stroke-width="1" stroke-dasharray="3,2"/>
+  <circle cx="1055" cy="605" r="5" fill="#ffab40"/>
+  <text x="1045" y="609" text-anchor="end" fill="#ffe0b2" font-size="10">3V3</text>
+
+  <!-- Step 4 -->
+  <circle cx="1010" cy="400" r="13" fill="#ff9800"/><text x="1010" y="405" text-anchor="middle" fill="#000" font-size="12" font-weight="bold">4</text>
+
+  <!-- WiFi waves -->
+  <path d="M1070,480 Q1085,465 1070,450" fill="none" stroke="#ab47bc" stroke-width="2.5" opacity=".5"/>
+  <path d="M1078,490 Q1100,465 1078,440" fill="none" stroke="#ab47bc" stroke-width="2.5" opacity=".7"/>
+  <path d="M1086,500 Q1115,465 1086,430" fill="none" stroke="#ab47bc" stroke-width="2.5" opacity=".9"/>
+  <text x="1120" y="455" fill="#ce93d8" font-size="10" font-weight="bold">WiFi AP</text>
+  <text x="1120" y="470" fill="#ba68c8" font-size="9">AVTOTOR_CAN</text>
+
+  <!-- Step 5 -->
+  <circle cx="1170" cy="420" r="13" fill="#ff9800"/><text x="1170" y="425" text-anchor="middle" fill="#000" font-size="12" font-weight="bold">5</text>
+
+  <!-- WiFi arrow -->
+  <line x1="1155" y1="465" x2="1195" y2="465" stroke="#ab47bc" stroke-width="2.5" stroke-dasharray="5,3" marker-end="url(#aP)"/>
+
+  <!-- ===== PHONE / SAVVYCAN (WiFi client) ===== -->
+  <rect x="1200" y="370" width="150" height="150" rx="8" fill="#1a237e" stroke="#5c6bc0" stroke-width="2"/>
+  <rect x="1208" y="378" width="134" height="105" rx="4" fill="#0d1b3e"/>
+  <text x="1275" y="405" text-anchor="middle" fill="#00e5ff" font-size="12" font-weight="bold">SavvyCAN</text>
+  <text x="1275" y="422" text-anchor="middle" fill="#90caf9" font-size="9">192.168.4.1:23</text>
+  <text x="1275" y="448" text-anchor="middle" fill="#66bb6a" font-size="8">ID:0x7E0 DLC:8</text>
+  <text x="1275" y="461" text-anchor="middle" fill="#66bb6a" font-size="7">02 01 00 00 00 00 00 00</text>
+  <text x="1275" y="478" text-anchor="middle" fill="#ce93d8" font-size="8">GVRET протокол</text>
+  <text x="1275" y="535" text-anchor="middle" fill="#7986cb" font-size="9">Ноутбук / Телефон</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- НИЖНЯЯ ПОЛОСА: предупреждение + архитектура (по центру)        -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- Warning box: RX is the only dangerous wire -->
+  <rect x="340" y="800" width="330" height="34" rx="6" fill="#ff525230" stroke="#ff5252" stroke-width="1.5"/>
+  <text x="505" y="814" text-anchor="middle" fill="#ff8a80" font-size="9" font-weight="bold">RX (TJA1050 &rarr; ESP32) &mdash; единственный опасный провод</text>
+  <text x="505" y="828" text-anchor="middle" fill="#ff5252" font-size="9">5V &rarr; делитель 1к/2к &rarr; 3.33V на GPIO 5</text>
+
+  <!-- Architecture note -->
+  <rect x="700" y="800" width="340" height="34" rx="6" fill="#66bb6a15" stroke="#66bb6a" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="870" y="814" text-anchor="middle" fill="#a5d6a7" font-size="9" font-weight="bold">TWAI архитектура (v2.0) &mdash; только 2 провода: TX + RX</text>
+  <text x="870" y="828" text-anchor="middle" fill="#66bb6a" font-size="9">Нет SPI, нет MCP2515, нет HW-184 | RX FIFO: 32 фрейма</text>
+</svg>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-color" style="background:#ff5252"></div>5V</div>
+  <div class="legend-item"><div class="legend-color" style="background:#ffab40"></div>3.3V</div>
+  <div class="legend-item"><div class="legend-color" style="background:#78909c"></div>GND</div>
+  <div class="legend-item"><div class="legend-color" style="background:#66bb6a"></div>CAN шина</div>
+  <div class="legend-item"><div class="legend-color" style="background:#42a5f5"></div>TWAI TX (напрямую)</div>
+  <div class="legend-item"><div class="legend-color" style="background:#00e5ff"></div>TWAI RX (через делитель)</div>
+  <div class="legend-item"><div class="legend-color" style="background:#ab47bc"></div>WiFi / GVRET</div>
+  <div class="legend-item"><div class="legend-color" style="background:#546e7a"></div>USB (ПК &harr; CANable)</div>
+</div>
+
+<!-- ====== SIGNAL PATH ====== -->
+<h2>Путь сигнала (от машины до SavvyCAN)</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 1200 480" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11">
+  <rect width="1200" height="480" fill="#0d0d0d"/>
+
+  <!-- Title -->
+  <text x="600" y="22" text-anchor="middle" fill="#00e5ff" font-size="13" font-weight="bold">Полный путь CAN фрейма: от ECU автомобиля до экрана SavvyCAN (TWAI)</text>
+
+  <!-- ===== ROW 1: HARDWARE ===== -->
+  <text x="30" y="55" fill="#888" font-size="10" font-weight="bold">HARDWARE:</text>
+
+  <!-- CAR ECU / CANable -->
+  <rect x="30" y="65" width="130" height="70" rx="8" fill="#1b5e2030" stroke="#66bb6a" stroke-width="2"/>
+  <text x="95" y="85" text-anchor="middle" fill="#a5d6a7" font-size="11" font-weight="bold">ECU авто</text>
+  <text x="95" y="99" text-anchor="middle" fill="#90a4ae" font-size="8">или CANable 3.0</text>
+  <text x="95" y="113" text-anchor="middle" fill="#81c784" font-size="9">CAN TX: ID+DLC+Data</text>
+  <text x="95" y="127" text-anchor="middle" fill="#66bb6a" font-size="8">500 Кбит/с differential</text>
+
+  <!-- Arrow 1 -->
+  <line x1="165" y1="100" x2="200" y2="100" stroke="#66bb6a" stroke-width="2.5"/>
+  <polygon points="198,94 210,100 198,106" fill="#66bb6a"/>
+  <text x="187" y="90" fill="#a5d6a7" font-size="8">CANH</text>
+  <text x="187" y="118" fill="#81c784" font-size="8">CANL</text>
+
+  <!-- TJA1050 -->
+  <rect x="210" y="65" width="140" height="70" rx="8" fill="#1a237e30" stroke="#5c6bc0" stroke-width="2"/>
+  <text x="280" y="88" text-anchor="middle" fill="#9fa8da" font-size="11" font-weight="bold">TJA1050</text>
+  <text x="280" y="104" text-anchor="middle" fill="#7986cb" font-size="9">diff &rarr; single-ended</text>
+  <text x="280" y="118" text-anchor="middle" fill="#5c6bc0" font-size="8">&plusmn;2V &rarr; 0/5V TTL</text>
+
+  <!-- Arrow 2: RX line to ESP32 TWAI -->
+  <line x1="355" y1="100" x2="400" y2="100" stroke="#00e5ff" stroke-width="2.5"/>
+  <polygon points="398,94 410,100 398,106" fill="#00e5ff"/>
+  <text x="378" y="90" fill="#00e5ff" font-size="8">RX</text>
+  <text x="378" y="118" fill="#ffab40" font-size="7">делитель</text>
+
+  <!-- ESP32 TWAI (built-in) -->
+  <rect x="410" y="65" width="170" height="70" rx="8" fill="#26323830" stroke="#42a5f5" stroke-width="2"/>
+  <text x="495" y="85" text-anchor="middle" fill="#90caf9" font-size="11" font-weight="bold">ESP32-S3 TWAI</text>
+  <text x="495" y="100" text-anchor="middle" fill="#64b5f6" font-size="9">встроенный CAN контроллер</text>
+  <text x="495" y="114" text-anchor="middle" fill="#42a5f5" font-size="8">CRC + арбитраж + FIFO</text>
+  <text x="495" y="128" text-anchor="middle" fill="#ff9800" font-size="8" font-weight="bold">буфер: 32 фрейма</text>
+
+  <!-- Arrow 3: internal bus -->
+  <line x1="585" y1="100" x2="620" y2="100" stroke="#78909c" stroke-width="2"/>
+  <polygon points="618,94 630,100 618,106" fill="#78909c"/>
+
+  <!-- WiFi Radio -->
+  <rect x="630" y="65" width="140" height="70" rx="8" fill="#4a148c30" stroke="#ab47bc" stroke-width="2"/>
+  <text x="700" y="85" text-anchor="middle" fill="#ce93d8" font-size="11" font-weight="bold">WiFi Radio</text>
+  <text x="700" y="100" text-anchor="middle" fill="#ba68c8" font-size="9">802.11n AP</text>
+  <text x="700" y="114" text-anchor="middle" fill="#9c27b0" font-size="8">AVTOTOR_CAN ch.1</text>
+  <text x="700" y="128" text-anchor="middle" fill="#ab47bc" font-size="8">TCP:23 socket</text>
+
+  <!-- Arrow 4: RF -->
+  <path d="M775,90 Q790,80 775,70" fill="none" stroke="#ab47bc" stroke-width="2" opacity=".5"/>
+  <path d="M782,95 Q802,80 782,65" fill="none" stroke="#ab47bc" stroke-width="2" opacity=".7"/>
+  <path d="M789,100 Q814,80 789,60" fill="none" stroke="#ab47bc" stroke-width="2"/>
+  <line x1="820" y1="100" x2="860" y2="100" stroke="#ab47bc" stroke-width="2" stroke-dasharray="5,3"/>
+  <polygon points="858,94 870,100 858,106" fill="#ab47bc"/>
+
+  <!-- SavvyCAN Device -->
+  <rect x="870" y="65" width="170" height="70" rx="8" fill="#1a237e30" stroke="#5c6bc0" stroke-width="2"/>
+  <text x="955" y="85" text-anchor="middle" fill="#00e5ff" font-size="11" font-weight="bold">SavvyCAN</text>
+  <text x="955" y="100" text-anchor="middle" fill="#90caf9" font-size="9">192.168.4.1:23</text>
+  <text x="955" y="114" text-anchor="middle" fill="#7986cb" font-size="8">GVRET decode &rarr; UI</text>
+  <text x="955" y="128" text-anchor="middle" fill="#5c6bc0" font-size="8">фильтрация, графики</text>
+
+  <!-- ===== ROW 2: SOFTWARE (functions) ===== -->
+  <text x="30" y="175" fill="#888" font-size="10" font-weight="bold">SOFTWARE:</text>
+
+  <!-- canManager.loop() -->
+  <rect x="410" y="185" width="170" height="55" rx="6" fill="#1b5e2020" stroke="#66bb6a" stroke-width="1.5"/>
+  <text x="495" y="202" text-anchor="middle" fill="#a5d6a7" font-size="10" font-weight="bold">canManager.loop()</text>
+  <text x="495" y="216" text-anchor="middle" fill="#81c784" font-size="8">can_manager.cpp</text>
+  <text x="495" y="230" text-anchor="middle" fill="#66bb6a" font-size="7">polling: available() &rarr; read()</text>
+
+  <!-- Arrow down from TWAI -->
+  <line x1="495" y1="140" x2="495" y2="182" stroke="#42a5f5" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+  <!-- ESP32CAN::read() [twai_receive] -->
+  <rect x="610" y="185" width="170" height="55" rx="6" fill="#42a5f520" stroke="#42a5f5" stroke-width="1.5"/>
+  <text x="695" y="202" text-anchor="middle" fill="#90caf9" font-size="10" font-weight="bold">ESP32CAN::read()</text>
+  <text x="695" y="216" text-anchor="middle" fill="#64b5f6" font-size="8">esp32_can_idf.cpp</text>
+  <text x="695" y="230" text-anchor="middle" fill="#42a5f5" font-size="7">twai_receive() &rarr; CAN_FRAME</text>
+
+  <line x1="585" y1="212" x2="607" y2="212" stroke="#66bb6a" stroke-width="1.5"/>
+  <polygon points="605,207 615,212 605,217" fill="#66bb6a"/>
+
+  <!-- displayFrame() -->
+  <rect x="410" y="255" width="170" height="55" rx="6" fill="#ff980020" stroke="#ff9800" stroke-width="1.5"/>
+  <text x="495" y="272" text-anchor="middle" fill="#ffcc80" font-size="10" font-weight="bold">displayFrame()</text>
+  <text x="495" y="286" text-anchor="middle" fill="#ff9800" font-size="8">can_manager.cpp</text>
+  <text x="495" y="300" text-anchor="middle" fill="#ffab40" font-size="7">CAN_FRAME &rarr; GVRET handler</text>
+
+  <line x1="495" y1="242" x2="495" y2="252" stroke="#66bb6a" stroke-width="1.5"/>
+  <polygon points="489,251 495,260 501,251" fill="#66bb6a"/>
+
+  <!-- sendFrameToBuffer() -->
+  <rect x="610" y="255" width="170" height="55" rx="6" fill="#42a5f520" stroke="#42a5f5" stroke-width="1.5"/>
+  <text x="695" y="272" text-anchor="middle" fill="#90caf9" font-size="10" font-weight="bold">sendFrameToBuffer()</text>
+  <text x="695" y="286" text-anchor="middle" fill="#64b5f6" font-size="8">gvret_comm.cpp</text>
+  <text x="695" y="300" text-anchor="middle" fill="#42a5f5" font-size="7">0xF1 + ts + ID + DLC + data</text>
+
+  <line x1="585" y1="282" x2="607" y2="282" stroke="#ff9800" stroke-width="1.5"/>
+  <polygon points="605,277 615,282 605,287" fill="#ff9800"/>
+
+  <!-- wifi_manager_send_buffered_data -->
+  <rect x="810" y="255" width="195" height="55" rx="6" fill="#4a148c20" stroke="#ab47bc" stroke-width="1.5"/>
+  <text x="907" y="272" text-anchor="middle" fill="#ce93d8" font-size="10" font-weight="bold">send_buffered_data()</text>
+  <text x="907" y="286" text-anchor="middle" fill="#ba68c8" font-size="8">wifi_manager_idf.cpp</text>
+  <text x="907" y="300" text-anchor="middle" fill="#ab47bc" font-size="7">buffer 2048B &rarr; TCP send()</text>
+
+  <line x1="782" y1="282" x2="807" y2="282" stroke="#42a5f5" stroke-width="1.5"/>
+  <polygon points="805,277 815,282 805,287" fill="#42a5f5"/>
+
+  <!-- Arrow up to WiFi radio -->
+  <line x1="700" y1="252" x2="700" y2="140" stroke="#ab47bc" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+  <!-- ===== ROW 3: DATA FORMAT ===== -->
+  <text x="30" y="345" fill="#888" font-size="10" font-weight="bold">DATA FORMAT:</text>
+
+  <!-- CAN differential -->
+  <rect x="30" y="355" width="145" height="42" rx="5" fill="#66bb6a15" stroke="#66bb6a" stroke-width="1"/>
+  <text x="102" y="372" text-anchor="middle" fill="#a5d6a7" font-size="9">Differential &plusmn;2V</text>
+  <text x="102" y="387" text-anchor="middle" fill="#66bb6a" font-size="8">CANH=3.5V CANL=1.5V</text>
+
+  <line x1="180" y1="376" x2="210" y2="376" stroke="#888" stroke-width="1"/>
+
+  <!-- TTL -->
+  <rect x="210" y="355" width="140" height="42" rx="5" fill="#5c6bc015" stroke="#5c6bc0" stroke-width="1"/>
+  <text x="280" y="372" text-anchor="middle" fill="#9fa8da" font-size="9">TTL 0/5V</text>
+  <text x="280" y="387" text-anchor="middle" fill="#7986cb" font-size="8">TJA1050 RX bit stream</text>
+
+  <line x1="355" y1="376" x2="410" y2="376" stroke="#888" stroke-width="1"/>
+
+  <!-- CAN Frame in TWAI FIFO -->
+  <rect x="410" y="355" width="170" height="42" rx="5" fill="#ff980015" stroke="#ff9800" stroke-width="1"/>
+  <text x="495" y="372" text-anchor="middle" fill="#ffcc80" font-size="9">CAN_FRAME struct</text>
+  <text x="495" y="387" text-anchor="middle" fill="#ff9800" font-size="8">id + ts + len + data[8]</text>
+
+  <line x1="585" y1="376" x2="610" y2="376" stroke="#888" stroke-width="1"/>
+
+  <!-- GVRET binary -->
+  <rect x="610" y="355" width="170" height="42" rx="5" fill="#42a5f515" stroke="#42a5f5" stroke-width="1"/>
+  <text x="695" y="372" text-anchor="middle" fill="#90caf9" font-size="9">GVRET binary</text>
+  <text x="695" y="387" text-anchor="middle" fill="#42a5f5" font-size="8">F1 00 [ts4] [id4] [dlc] [data]</text>
+
+  <line x1="785" y1="376" x2="810" y2="376" stroke="#888" stroke-width="1"/>
+
+  <!-- TCP packet -->
+  <rect x="810" y="355" width="145" height="42" rx="5" fill="#ab47bc15" stroke="#ab47bc" stroke-width="1"/>
+  <text x="882" y="372" text-anchor="middle" fill="#ce93d8" font-size="9">TCP segment</text>
+  <text x="882" y="387" text-anchor="middle" fill="#ab47bc" font-size="8">IP + TCP + GVRET payload</text>
+
+  <line x1="960" y1="376" x2="990" y2="376" stroke="#888" stroke-width="1"/>
+
+  <!-- Decoded in SavvyCAN -->
+  <rect x="990" y="355" width="170" height="42" rx="5" fill="#00e5ff15" stroke="#00e5ff" stroke-width="1"/>
+  <text x="1075" y="372" text-anchor="middle" fill="#80deea" font-size="9">SavvyCAN UI</text>
+  <text x="1075" y="387" text-anchor="middle" fill="#00e5ff" font-size="8">ID | DLC | Data hex | timestamp</text>
+
+  <!-- ===== ROW 4: TIMING ===== -->
+  <text x="30" y="425" fill="#888" font-size="10" font-weight="bold">TIMING:</text>
+
+  <!-- Timing bars -->
+  <rect x="30" y="435" width="145" height="20" rx="3" fill="#66bb6a40"/>
+  <text x="102" y="449" text-anchor="middle" fill="#a5d6a7" font-size="9">~128 мкс</text>
+
+  <rect x="210" y="435" width="140" height="20" rx="3" fill="#5c6bc040"/>
+  <text x="280" y="449" text-anchor="middle" fill="#9fa8da" font-size="9">&lt;1 мкс</text>
+
+  <rect x="410" y="435" width="170" height="20" rx="3" fill="#ff980040"/>
+  <text x="495" y="449" text-anchor="middle" fill="#ffcc80" font-size="9">~5 мкс (twai_receive)</text>
+
+  <rect x="610" y="435" width="170" height="20" rx="3" fill="#42a5f540"/>
+  <text x="695" y="449" text-anchor="middle" fill="#90caf9" font-size="9">~5 мкс</text>
+
+  <rect x="810" y="435" width="145" height="20" rx="3" fill="#ab47bc40"/>
+  <text x="882" y="449" text-anchor="middle" fill="#ce93d8" font-size="9">0-20 мс (flush)</text>
+
+  <!-- Total -->
+  <text x="600" y="475" text-anchor="middle" fill="#ffab40" font-size="11" font-weight="bold">Суммарная задержка: ~20 мс (определяется WiFi flush интервалом SER_BUFF_FLUSH_INTERVAL)</text>
+</svg>
+</div>
+
+<!-- ====== STEP DESCRIPTIONS ====== -->
+<div class="step"><span class="step-num">0</span><strong style="color:#ff9800">ПК + CANable 3.0 (имитация автомобиля)</strong> &mdash; Вместо реального автомобиля используется <strong>CANable 3.0</strong> (STM32F072 с прошивкой candleLight). ПК с SavvyCAN подключается к CANable по USB (USB-A/USB-C) и отправляет тестовые CAN-фреймы. CANable преобразует их в дифференциальный сигнал CANH/CANL. Три выходных пина: <strong>GND</strong>, <strong>CAN_H</strong>, <strong>CAN_L</strong>. Перемычка <strong>JP1</strong> замыкается для включения терминирующего резистора 120 Ом. Синий LED моргает при прохождении фреймов. GND CANable <strong>обязательно</strong> соединяется с общей землёй (GND ESP32 / TJA1050).</div>
+
+<div class="step"><span class="step-num">1</span><strong style="color:#66bb6a">ECU &rarr; CAN шина &rarr; TJA1050</strong> &mdash; ECU автомобиля формирует CAN фрейм (SOF + ID + DLC + Data + CRC + ACK + EOF). Биты передаются дифференциально по витой паре CANH/CANL. TJA1050 преобразует дифференциальный сигнал (&Delta;V=2V) в одиночный TTL (0/5V) на линии RX. Время передачи фрейма: ~128 мкс @ 500K (64 бита данных + overhead).</div>
+
+<div class="step"><span class="step-num">2</span><strong style="color:#00e5ff">TJA1050 RX &rarr; делитель напряжения &rarr; ESP32 GPIO 5 (TWAI RX)</strong> &mdash; TJA1050 выдаёт 5V TTL на линии RX. Делитель 1к/2к снижает до 3.33V (безопасно для GPIO). Встроенный TWAI периферийный контроллер ESP32-S3 принимает битовый поток, выполняет bit stuffing decode, проверяет CRC-15, отправляет ACK, парсит ID/DLC/Data и помещает готовый фрейм в аппаратный RX FIFO на 32 фрейма. При переполнении &mdash; старые фреймы теряются, но 32 фрейма это значительно лучше, чем 2 буфера у MCP2515.</div>
+
+<div class="step"><span class="step-num">3</span><strong style="color:#42a5f5">canManager.loop() &rarr; twai_receive()</strong> &mdash; Каждую итерацию главного цикла (~1 мс) ESP32 вызывает <code>canManager.loop()</code> &rarr; <code>ESP32CAN::available()</code> проверяет наличие фреймов в TWAI FIFO. Если фрейм готов &mdash; <code>ESP32CAN::read()</code> вызывает <code>twai_receive()</code> (non-blocking, timeout=0), конвертирует <code>twai_message_t</code> в <code>CAN_FRAME</code>. Никакого SPI &mdash; прямой доступ к периферии через регистры. Файл: <code>esp32_can_idf.cpp</code>. Время: ~5 мкс.</div>
+
+<div class="step"><span class="step-num">4</span><strong style="color:#ff9800">CAN_FRAME &rarr; GVRET serialize</strong> &mdash; <code>canManager.displayFrame()</code> вызывает <code>wifiGVRET.sendFrameToBuffer()</code>, которая сериализует фрейм в GVRET binary формат: <code>0xF1</code> (header) + <code>0x00</code> (cmd) + timestamp 4B + CAN ID 4B (бит 31 = extended) + (DLC | bus&lt;&lt;4) + data bytes. Результат записывается в WiFi TX буфер (2048 байт). Файл: <code>gvret_comm.cpp</code>. Время: ~5 мкс.</div>
+
+<div class="step"><span class="step-num">5</span><strong style="color:#ab47bc">WiFi TX buffer &rarr; TCP:23 &rarr; SavvyCAN</strong> &mdash; Каждые 20 мс (SER_BUFF_FLUSH_INTERVAL) или при заполнении буфера <code>wifi_manager_send_buffered_data()</code> отправляет накопленные GVRET пакеты через TCP сокет на порт 23. Данные проходят через lwIP стек (Core 0), WiFi стек формирует 802.11 фреймы, радио передаёт по каналу 1. SavvyCAN принимает TCP поток, декодирует GVRET binary, отображает фреймы в таблице. Файл: <code>wifi_manager_idf.cpp</code>.</div>
+
+<h3>Обратный путь (SavvyCAN &rarr; CAN шина)</h3>
+<div class="step"><span class="step-num">A</span><strong style="color:#ab47bc">SavvyCAN &rarr; TCP:23</strong> &mdash; Пользователь нажимает Send в SavvyCAN. Фрейм кодируется в GVRET binary (0xF1 + 0x00 + ID + bus + DLC + data) и отправляется по TCP.</div>
+<div class="step"><span class="step-num">B</span><strong style="color:#42a5f5">ESP32 &rarr; GVRET decode</strong> &mdash; <code>wifi_manager_loop()</code> читает TCP данные (non-blocking), <code>wifiGVRET.processIncomingByte()</code> собирает фрейм через state machine (IDLE &rarr; GET_COMMAND &rarr; BUILD_CAN_FRAME).</div>
+<div class="step"><span class="step-num">C</span><strong style="color:#66bb6a">ESP32 TWAI TX &rarr; TJA1050 &rarr; CAN шина</strong> &mdash; <code>CANManager::sendFrame()</code> &rarr; <code>ESP32CAN::sendFrame()</code> вызывает <code>twai_transmit()</code> с заданным таймаутом. TWAI контроллер выполняет арбитраж и передаёт фрейм через GPIO 4 (TX) в TJA1050. TX линия безопасна: ESP32 выдаёт 3.3V, TJA1050 воспринимает это как HIGH (VIH &ge; 2.0V для 5V логики).</div>
+
+<!-- ====== TIMING TABLE ====== -->
+<h3>Тайминг полного пути</h3>
+<table>
+<tr><th>Этап</th><th>Компонент</th><th>Время</th><th>Бутылочное горлышко?</th></tr>
+<tr><td>1</td><td>CAN фрейм на шине</td><td>~128 мкс (DLC=8 @ 500K)</td><td>Нет</td></tr>
+<tr><td>2</td><td>TJA1050 дифф &rarr; TTL</td><td>&lt;0.1 мкс</td><td>Нет</td></tr>
+<tr><td>3</td><td>TWAI decode + CRC + FIFO (32 фр.)</td><td>~0 (параллельно с приёмом)</td><td>Нет (32 фрейма FIFO!)</td></tr>
+<tr><td>4</td><td>twai_receive() (прямой регистр)</td><td>~5 мкс</td><td>Нет</td></tr>
+<tr><td>5</td><td>GVRET serialize</td><td>~5 мкс</td><td>Нет</td></tr>
+<tr><td>6</td><td>WiFi buffer + flush</td><td>0&ndash;20 мс</td><td style="color:#ff9800;font-weight:bold">ДА! Основная задержка</td></tr>
+<tr><td>7</td><td>WiFi TX + TCP</td><td>~1&ndash;5 мс</td><td>Зависит от эфира</td></tr>
+<tr><td></td><td><strong>ИТОГО</strong></td><td style="color:#00e5ff;font-weight:bold">~1&ndash;25 мс</td><td>Flush интервал определяет</td></tr>
+</table>
+
+<div class="info"><strong>Пропускная способность:</strong> один GVRET фрейм = ~19 байт. Буфер 2048 байт = ~107 фреймов. При flush каждые 20 мс = ~5350 фреймов/с. Типичный автомобиль генерирует 500&ndash;3000 фреймов/с &mdash; запас есть. TWAI FIFO на 32 фрейма позволяет пережить пиковые нагрузки без потерь (MCP2515 имел всего 2 буфера).</div>
+
+<!-- ====== WIRING TABLE ====== -->
+<h2>Таблица подключения (всего 6 проводов)</h2>
+<table>
+<tr><th>#</th><th>TJA1050 пин</th><th>&harr;</th><th>ESP32-S3 пин</th><th>Подключение</th><th>Уровень</th><th>Комментарий</th></tr>
+<tr><td>1</td><td style="color:#66bb6a">CANH</td><td>&larr;</td><td>Машина (OBD пин 6)</td><td>Напрямую</td><td>&plusmn;2V diff</td><td>CAN High</td></tr>
+<tr><td>2</td><td style="color:#66bb6a">CANL</td><td>&larr;</td><td>Машина (OBD пин 14)</td><td>Напрямую</td><td>&plusmn;2V diff</td><td>CAN Low</td></tr>
+<tr><td>3</td><td style="color:#42a5f5">TX (вход)</td><td>&larr;</td><td style="color:#42a5f5">GPIO 4</td><td>Напрямую</td><td>3.3V&rarr;5V OK</td><td>TWAI TX. VIH&ge;2.0V &mdash; безопасно</td></tr>
+<tr><td>4</td><td style="color:#00e5ff">RX (выход)</td><td>&rarr;</td><td style="color:#00e5ff">GPIO 5</td><td style="color:#ff5252;font-weight:bold">Делитель 1к/2к!</td><td style="color:#ff5252">5V&rarr;3.33V</td><td>TWAI RX. Без делителя &mdash; смерть GPIO!</td></tr>
+<tr><td>5</td><td style="color:#ff5252">VCC</td><td>&larr;</td><td style="color:#ff5252">5V (USB)</td><td>Напрямую</td><td>5V</td><td>TJA1050 требует строго 5V</td></tr>
+<tr><td>6</td><td style="color:#78909c">GND</td><td>&harr;</td><td style="color:#78909c">GND</td><td>Напрямую</td><td>0V</td><td>Общая земля обязательна!</td></tr>
+</table>
+
+<div class="ok"><strong>Всего 6 проводов!</strong> Это значительно проще, чем старая схема с HW-184 (8 проводов + SPI). Нет SPI, нет MCP2515 &mdash; ESP32 напрямую общается с TJA1050 через встроенный TWAI контроллер.</div>
+
+<!-- ====== TJA1050 MODULE ====== -->
+<h2>Модуль TJA1050 (standalone)</h2>
+<div class="diagram-wrap">
+<svg viewBox="0 0 500 300" width="160" height="96" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="11" style="display:block;margin:0 auto">
+  <rect width="500" height="300" fill="#0d0d0d"/>
+
+  <!-- PCB Board -->
+  <rect x="80" y="30" width="340" height="220" rx="6" fill="#0d47a1" stroke="#1565c0" stroke-width="2"/>
+  <circle cx="100" cy="50" r="6" fill="#0d0d0d" stroke="#1565c0" stroke-width="1"/>
+  <circle cx="400" cy="50" r="6" fill="#0d0d0d" stroke="#1565c0" stroke-width="1"/>
+  <circle cx="100" cy="230" r="6" fill="#0d0d0d" stroke="#1565c0" stroke-width="1"/>
+  <circle cx="400" cy="230" r="6" fill="#0d0d0d" stroke="#1565c0" stroke-width="1"/>
+
+  <!-- Module title -->
+  <text x="250" y="75" text-anchor="middle" fill="#90caf9" font-size="13" font-weight="bold">TJA1050 CAN Transceiver Module</text>
+  <text x="250" y="90" text-anchor="middle" fill="#64b5f6" font-size="9">(standalone &mdash; только трансивер, без контроллера)</text>
+
+  <!-- TJA1050 IC -->
+  <rect x="175" y="105" width="80" height="55" rx="3" fill="#1a1a1a" stroke="#444" stroke-width="1.5"/>
+  <circle cx="185" cy="115" r="3" fill="#555"/>
+  <text x="215" y="137" text-anchor="middle" fill="#bbb" font-size="10">TJA1050</text>
+  <text x="215" y="100" fill="#fff" font-size="9">U1</text>
+
+  <!-- Left pin header (ESP32 side): VCC, GND, TX, RX -->
+  <rect x="85" y="105" width="16" height="120" rx="2" fill="#333"/>
+  <text x="80" y="100" fill="#fff" font-size="9" text-anchor="end">J1</text>
+  <circle cx="93" cy="120" r="5" fill="#daa520"/><text x="115" y="124" fill="#ff5252" font-size="9" font-weight="bold">VCC</text>
+  <circle cx="93" cy="145" r="5" fill="#daa520"/><text x="115" y="149" fill="#78909c" font-size="9" font-weight="bold">GND</text>
+  <circle cx="93" cy="170" r="5" fill="#daa520"/><text x="115" y="174" fill="#42a5f5" font-size="9" font-weight="bold">TX</text>
+  <circle cx="93" cy="195" r="5" fill="#daa520"/><text x="115" y="199" fill="#00e5ff" font-size="9" font-weight="bold">RX</text>
+
+  <!-- Arrows from pins to IC -->
+  <line x1="135" y1="120" x2="175" y2="120" stroke="#ff5252" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="135" y1="145" x2="175" y2="145" stroke="#78909c" stroke-width="1" stroke-dasharray="3,2"/>
+  <polyline points="135,170 160,170 160,130 175,130" fill="none" stroke="#42a5f5" stroke-width="1" stroke-dasharray="3,2"/>
+  <polyline points="135,195 160,195 160,148 175,148" fill="none" stroke="#00e5ff" stroke-width="1" stroke-dasharray="3,2"/>
+
+  <!-- Right: CAN screw terminal -->
+  <rect x="380" y="115" width="30" height="65" rx="4" fill="#1976d2" stroke="#1565c0" stroke-width="2"/>
+  <circle cx="395" cy="133" r="8" fill="#90a4ae" stroke="#78909c" stroke-width="1"/>
+  <circle cx="395" cy="163" r="8" fill="#90a4ae" stroke="#78909c" stroke-width="1"/>
+  <text x="395" y="136" text-anchor="middle" fill="#333" font-size="8" font-weight="bold">H</text>
+  <text x="395" y="166" text-anchor="middle" fill="#333" font-size="8" font-weight="bold">L</text>
+
+  <!-- Lines from IC to screw terminal -->
+  <polyline points="255,125 320,125 320,133 380,133" fill="none" stroke="#66bb6a" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <polyline points="255,145 320,145 320,163 380,163" fill="none" stroke="#4caf50" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+  <!-- Labels for CAN side -->
+  <text x="310" y="118" fill="#a5d6a7" font-size="9">CANH</text>
+  <text x="310" y="172" fill="#81c784" font-size="9">CANL</text>
+
+  <!-- POW LED -->
+  <circle cx="250" cy="200" r="5" fill="#ff1744" opacity=".9"/>
+  <text x="250" y="218" text-anchor="middle" fill="#fff" font-size="8">POW LED</text>
+
+  <!-- Key differences from HW-184 -->
+  <text x="250" y="268" text-anchor="middle" fill="#ffab40" font-size="10" font-weight="bold">Отличия от HW-184:</text>
+  <text x="250" y="283" text-anchor="middle" fill="#ccc" font-size="9">Нет MCP2515 | Нет кварца 8 МГц | Нет SPI | Только 4+2 пина</text>
+</svg>
+</div>
+
+<table>
+<tr><th>Ref</th><th>Компонент</th><th>Значение</th><th>Функция</th></tr>
+<tr><td>U1</td><td>TJA1050</td><td>SOIC-8</td><td>CAN трансивер (CANH/CANL &harr; TTL 0/5V)</td></tr>
+<tr><td>J1</td><td>Гребёнка</td><td>4 пина</td><td>VCC, GND, TX (вход), RX (выход)</td></tr>
+<tr><td>&mdash;</td><td>Клеммник</td><td>2 пина</td><td>CANH, CANL (к автомобилю)</td></tr>
+<tr><td>POW</td><td>LED</td><td>Красный</td><td>Индикатор питания 5V</td></tr>
+</table>
+
+<div class="warn"><strong>На модуле TJA1050 НЕТ стабилизатора!</strong> Вся логика работает от VCC напрямую (5V). Выход RX имеет уровень 5V. Поэтому на линии RX &rarr; GPIO 5 нужен делитель напряжения! Вход TX принимает 3.3V как HIGH (порог VIH &ge; 2.0V для 5V логики) &mdash; делитель не нужен.</div>
+
+<!-- ====== VOLTAGE DIVIDER ====== -->
+<h2>Делитель напряжения (TJA1050 RX &rarr; GPIO 5)</h2>
+<div class="two-col"><div>
+<pre>TJA1050 RX (5V) ──[<span style="color:#ffab40">R1 = 1 кОм</span>]──┬── <span style="color:#00e5ff">GPIO 5</span> (3.33V)
+                                 │
+                             [<span style="color:#ffab40">R2 = 2 кОм</span>]
+                                 │
+                               <span style="color:#78909c">GND</span>
+
+<span style="color:#888">Формула: Vout = 5V * 2k / (1k+2k) = 3.33V</span>
+<span style="color:#888">Нет 2к? Два по 1к последовательно.</span>
+<span style="color:#888">Допустимы 1% или 5% резисторы.</span></pre>
+</div><div>
+<table><tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>Вход (TJA1050 RX)</td><td style="color:#ff5252">5.0V</td></tr>
+<tr><td>Выход (GPIO 5)</td><td style="color:#00e5ff">3.33V</td></tr>
+<tr><td>Макс. допуск GPIO</td><td>3.6V (абсолютный максимум)</td></tr>
+<tr><td>Запас</td><td>0.27V (3.6 - 3.33)</td></tr>
+<tr><td>Ток через делитель</td><td>1.67 мА</td></tr>
+<tr><td>R1</td><td>1 кОм (маркировка 102)</td></tr>
+<tr><td>R2</td><td>2 кОм (маркировка 202)</td></tr></table>
+</div></div>
+
+<div class="danger"><strong>Без делителя GPIO 5 получит 5V &rarr; повреждение ESP32!</strong> Линия TX (GPIO 4 &rarr; TJA1050 TX) безопасна: ESP32 выдаёт 3.3V, TJA1050 воспринимает 3.3V как HIGH (порог VIH &ge; 2.0V для 5V логики). Делитель нужен ТОЛЬКО на RX.</div>
+
+<!-- ====== POWER ====== -->
+<h2>Питание</h2>
+<pre><span style="color:#ff5252">PowerBank</span> &rarr; <span style="color:#ff5252">USB-C (ESP32 DevKit)</span> &rarr; 5V шина &rarr; <span style="color:#ff5252">пин 5V</span> &rarr; <span style="color:#ff5252">TJA1050 VCC (5V)</span>
+                                            &darr;
+                                    <span style="color:#ffab40">AMS1117 &rarr; 3.3V</span> (все GPIO ESP32, пин 3V3)</pre>
+
+<table>
+<tr><th>Компонент</th><th>Ток (мА)</th><th>Напряжение</th><th>Источник</th></tr>
+<tr><td>ESP32-S3 (WiFi AP активен)</td><td>~120</td><td>3.3V</td><td>AMS1117 на плате DevKit</td></tr>
+<tr><td>TJA1050 (CAN трансивер)</td><td>~50</td><td>5V</td><td>USB через пин 5V</td></tr>
+<tr><td><strong>ИТОГО</strong></td><td><strong>~170</strong></td><td>&mdash;</td><td>Любой PowerBank (500 мА+)</td></tr>
+</table>
+
+<div class="info"><strong>AMS1117-3.3</strong> &mdash; линейный стабилизатор на плате ESP32 DevKit. Преобразует 5V от USB в 3.3V для чипа и GPIO. Drop-out ~1V, поэтому минимум 4.3V на входе. MCP2515 больше не потребляет ток &mdash; общее потребление снизилось на ~10 мА.</div>
+
+<!-- ====== SOFTWARE CONFIG ====== -->
+<h2>Конфигурация прошивки</h2>
+<div class="three-col config-grid">
+<div class="card">
+<h3>WiFi (AP)</h3>
+<table>
+<tr><td>SSID</td><td><code>AVTOTOR_CAN</code></td></tr>
+<tr><td>Пароль</td><td><code>mypassword</code></td></tr>
+<tr><td>Режим</td><td>Soft-AP (точка доступа)</td></tr>
+<tr><td>Канал</td><td>1</td></tr>
+<tr><td>Шифрование</td><td>WPA2-PSK</td></tr>
+<tr><td>Макс. клиентов</td><td>1</td></tr>
+<tr><td>IP</td><td>192.168.4.1</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>Сетевые порты</h3>
+<table>
+<tr><td>Telnet (GVRET)</td><td><strong>TCP :23</strong></td></tr>
+<tr><td>OTA обновление</td><td>TCP :3232</td></tr>
+<tr><td>UDP Beacon</td><td>UDP :17222</td></tr>
+<tr><td>Beacon данные</td><td><code>1C EF AC ED</code></td></tr>
+<tr><td>Beacon интервал</td><td>1 сек</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>CAN шина (TWAI)</h3>
+<table>
+<tr><td>Скорость</td><td><strong>500 Кбит/с</strong></td></tr>
+<tr><td>Режим</td><td>TWAI_MODE_NORMAL (RX+TX)</td></tr>
+<tr><td>TX пин</td><td>GPIO 4</td></tr>
+<tr><td>RX пин</td><td>GPIO 5</td></tr>
+<tr><td>RX FIFO</td><td>32 фрейма</td></tr>
+<tr><td>Фильтр</td><td>ACCEPT_ALL</td></tr>
+<tr><td>Шин</td><td>1 (CAN0)</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ====== SUPPORTED CAN SPEEDS ====== -->
+<h3>Поддерживаемые скорости CAN (TWAI макросы)</h3>
+<table>
+<tr><th>Скорость</th><th>TWAI макрос</th><th>Применение</th></tr>
+<tr><td>50 Кбит/с</td><td><code>TWAI_TIMING_CONFIG_50KBITS()</code></td><td>J1939 (грузовики)</td></tr>
+<tr><td>100 Кбит/с</td><td><code>TWAI_TIMING_CONFIG_100KBITS()</code></td><td>Комфорт (стеклоподъёмники)</td></tr>
+<tr><td>125 Кбит/с</td><td><code>TWAI_TIMING_CONFIG_125KBITS()</code></td><td>Кузов / диагностика</td></tr>
+<tr><td>250 Кбит/с</td><td><code>TWAI_TIMING_CONFIG_250KBITS()</code></td><td>Шасси / подвеска</td></tr>
+<tr><td style="color:#00e5ff;font-weight:bold">500 Кбит/с</td><td><code style="color:#00e5ff">TWAI_TIMING_CONFIG_500KBITS()</code></td><td style="color:#00e5ff"><strong>OBD-II (по умолчанию)</strong></td></tr>
+<tr><td>1 Мбит/с</td><td><code>TWAI_TIMING_CONFIG_1MBITS()</code></td><td>Мультимедиа / камеры</td></tr>
+</table>
+
+<div class="info"><strong>Нет CNF регистров!</strong> В отличие от MCP2515, где нужно было вручную вычислять CNF1/CNF2/CNF3 под кварц 8 МГц, TWAI использует готовые макросы ESP-IDF. Тайминг рассчитан под внутренний APB clock (80 МГц) &mdash; никаких внешних кварцев.</div>
+
+<!-- ====== TWAI CONFIG IN CODE ====== -->
+<h2>Конфигурация TWAI (в коде)</h2>
+<pre><span style="color:#888">// config_idf.h</span>
+<span style="color:#42a5f5">#define</span> TWAI_TX_PIN    <span style="color:#ffab40">4</span>     <span style="color:#888">// TWAI TX &rarr; TJA1050 TX (напрямую)</span>
+<span style="color:#42a5f5">#define</span> TWAI_RX_PIN    <span style="color:#ffab40">5</span>     <span style="color:#888">// TWAI RX &larr; TJA1050 RX (через делитель 1к/2к!)</span>
+
+<span style="color:#888">// esp32_can_idf.cpp &mdash; инициализация TWAI драйвера</span>
+twai_general_config_t g_config = <span style="color:#66bb6a">TWAI_GENERAL_CONFIG_DEFAULT</span>(TX, RX, TWAI_MODE_NORMAL);
+g_config.<span style="color:#00e5ff">rx_queue_len</span> = <span style="color:#ffab40">32</span>;      <span style="color:#888">// 32 фрейма в FIFO (MCP2515 имел только 2)</span>
+
+twai_timing_config_t t_config = <span style="color:#66bb6a">TWAI_TIMING_CONFIG_500KBITS</span>();  <span style="color:#888">// скорость CAN</span>
+twai_filter_config_t f_config = <span style="color:#66bb6a">TWAI_FILTER_CONFIG_ACCEPT_ALL</span>();  <span style="color:#888">// принимать все фреймы</span>
+
+<span style="color:#42a5f5">twai_driver_install</span>(&amp;g_config, &amp;t_config, &amp;f_config);  <span style="color:#888">// установить драйвер</span>
+<span style="color:#42a5f5">twai_start</span>();  <span style="color:#888">// запустить CAN контроллер</span></pre>
+
+<!-- ====== CAN TERMINATION ====== -->
+<h2>Терминация CAN (120 Ом)</h2>
+<div class="two-col"><div>
+<div class="warn"><strong>Проверьте терминацию!</strong> Большинство standalone TJA1050 модулей НЕ имеют съёмной перемычки для терминации (в отличие от HW-184 с J3). Если на модуле есть впаянный резистор 120 Ом между CANH и CANL &mdash; его нужно удалить при подключении к автомобилю.</div>
+<div class="ok"><strong>Если терминации нет</strong> на вашем модуле &mdash; просто подключайте к машине. В автомобиле CAN шина уже терминирована двумя резисторами по 120 Ом на концах.</div>
+</div><div>
+<pre>Правильная терминация CAN:
+
+ [120&#937;]──────────шина──────────[120&#937;]
+  ECU1           ...              ECU2
+                  │
+            TJA1050 модуль
+         (без терминации!)
+
+Импеданс шины: 60 Ом (два по 120 параллельно)</pre>
+</div></div>
+
+<!-- ====== TEST BENCH ====== -->
+<h2>Тестовый стенд (без автомобиля)</h2>
+
+<div class="info"><strong>CANable 3.0</strong> &mdash; USB-CAN адаптер на базе <strong>STM32F072</strong> с прошивкой <strong>candleLight</strong> (gs_usb). Определяется в системе как SocketCAN (Linux) или через WinUSB драйвер (Windows). SavvyCAN поддерживает его напрямую через Connection &rarr; <strong>socketCAN / candleLight</strong>.</div>
+
+<div class="two-col"><div>
+<h3>Подключение стенда</h3>
+<table>
+<tr><th>Откуда</th><th>&rarr;</th><th>Куда</th></tr>
+<tr><td>ПК USB</td><td>&rarr;</td><td>CANable USB-C</td></tr>
+<tr><td style="color:#66bb6a">CANable CAN_H</td><td>&rarr;</td><td style="color:#66bb6a">TJA1050 CANH</td></tr>
+<tr><td style="color:#4caf50">CANable CAN_L</td><td>&rarr;</td><td style="color:#4caf50">TJA1050 CANL</td></tr>
+<tr><td style="color:#78909c;font-weight:bold">CANable GND</td><td>&rarr;</td><td style="color:#78909c;font-weight:bold">Общая GND (ESP32/TJA1050)</td></tr>
+<tr><td>PowerBank USB-C</td><td>&rarr;</td><td>ESP32-S3 USB-C</td></tr>
+</table>
+</div><div>
+<h3>Терминация для стенда</h3>
+<table>
+<tr><th>Узел</th><th>120 Ом</th></tr>
+<tr><td>CANable 3.0 (JP1)</td><td style="color:#66bb6a;font-weight:bold">ЗАМКНУТЬ</td></tr>
+<tr><td>TJA1050 модуль</td><td>Оставить как есть (обычно впаян)</td></tr>
+</table>
+<p style="margin-top:10px;color:#b0bec5;font-size:12px">Два узла с двумя терминаторами по 120 Ом &mdash; правильная терминация CAN шины (60 Ом).</p>
+</div></div>
+
+<div class="danger"><strong>GND обязателен!</strong> Без общей земли между CANable и ESP32/TJA1050 дифференциальный сигнал CAN не будет корректно считываться. GND CANable подключается к любой точке общей земли: GND пин TJA1050 или GND пин ESP32.</div>
+
+<h3>Индикация CANable 3.0</h3>
+<table>
+<tr><th>LED</th><th>Цвет</th><th>Значение</th></tr>
+<tr><td>PWR</td><td>Зелёный</td><td>Питание от USB (5V)</td></tr>
+<tr><td style="color:#42a5f5;font-weight:bold">ACT</td><td style="color:#42a5f5">Синий</td><td>Моргает при прохождении CAN фреймов (TX/RX)</td></tr>
+</table>
+
+<div class="ok"><strong>Если синий LED моргает</strong> &mdash; фреймы идут по CAN шине. Если не моргает &mdash; проверьте: 1) скорость CAN в SavvyCAN совпадает (500K), 2) CANH/CANL не перепутаны, 3) GND подключён, 4) терминация.</div>
+
+<!-- ====== OBD-II PINOUT ====== -->
+<h2>Распиновка OBD-II разъёма</h2>
+<pre>┌───────────────────────────┐
+│  1   2   3   4   5   6   7   8  │
+│                                  │
+│   9  10  11  12  13  14  15  16  │
+└──────────────────────────────────┘
+
+Пин 6  = <span style="color:#66bb6a">CAN HIGH</span> (CANH) → клемма H на TJA1050
+Пин 14 = <span style="color:#4caf50">CAN LOW</span>  (CANL) → клемма L на TJA1050
+Пин 4  = Chassis GND (можно как доп. земля)
+Пин 5  = Signal GND
+Пин 16 = +12V (НЕ использовать для питания ESP32!)</pre>
+
+<div class="warn"><strong>Пин 16 OBD-II = +12V.</strong> Не подключайте его к ESP32! Для питания используйте отдельный PowerBank через USB-C.</div>
+
+<!-- ====== TROUBLESHOOTING ====== -->
+<h2>Диагностика проблем</h2>
+<table>
+<tr><th>Симптом</th><th>Причина</th><th>Решение</th></tr>
+<tr><td>LED на TJA1050 модуле не горит</td><td>Нет 5V на VCC</td><td>Проверить провод VCC&rarr;5V и GND</td></tr>
+<tr><td>WiFi сеть не появляется</td><td>ESP32 не запустился</td><td>Проверить прошивку, USB питание</td></tr>
+<tr><td>WiFi есть, но SavvyCAN не подключается</td><td>Неправильный порт</td><td>Порт должен быть <strong>23</strong> (не 3232)</td></tr>
+<tr><td>SavvyCAN подключён, но фреймов нет</td><td>Проблема с проводкой или CAN</td><td>Проверить: 1) TX/RX провода не перепутаны, 2) делитель на RX, 3) скорость CAN, 4) TWAI alerts в логе</td></tr>
+<tr><td>Фреймы есть, но мусор / ошибки CRC</td><td>Неправильная скорость CAN</td><td>По умолчанию 500K. Попробовать 250K или 125K</td></tr>
+<tr><td>ESP32 перезагружается</td><td>5V на GPIO 5 (без делителя)</td><td>Проверить делитель! Мультиметр на GPIO 5 должен показать 3.33V</td></tr>
+<tr><td>Фреймы идут, но редко</td><td>TWAI bus-off recovery</td><td>Проверить терминацию, CANH/CANL не перепутаны</td></tr>
+<tr><td><code>TWAI_ALERT_BUS_OFF</code> в логе</td><td>Ошибки на шине, контроллер отключился</td><td>Проверить: 1) CANH/CANL правильно, 2) терминация, 3) скорость CAN совпадает с авто</td></tr>
+<tr><td><code>TWAI_ALERT_RX_QUEUE_FULL</code></td><td>FIFO переполнен (32 фрейма)</td><td>Главный цикл слишком медленный &mdash; проверить блокирующие вызовы</td></tr>
+</table>
+
+<!-- ====== LED ====== -->
+<h2>Индикация</h2>
+<table>
+<tr><th>LED</th><th>Расположение</th><th>Значение</th></tr>
+<tr><td style="color:#ff1744">POW (красный)</td><td>TJA1050 модуль</td><td>Питание 5V подано &mdash; TJA1050 запитан</td></tr>
+<tr><td style="color:#00e5ff">GPIO 2 (синий)</td><td>ESP32 DevKit</td><td>Мигает при приёме CAN фреймов (каждые 250 фреймов)</td></tr>
+<tr><td style="color:#66bb6a">RGB</td><td>ESP32 DevKit</td><td>GPIO 48 (управляется системой)</td></tr>
+</table>
+
+<!-- ====== CHECKLIST ====== -->
+<h2>Чеклист сборки</h2>
+<table>
+<tr><th>#</th><th>Действие</th><th>Проверка</th></tr>
+<tr><td><span class="step-num">1</span></td><td>Припаять делитель: TJA1050 RX &rarr; [1кОм] &rarr; GPIO 5 &rarr; [2кОм] &rarr; GND</td><td>Мультиметр: 3.33V на GPIO 5 при 5V на RX</td></tr>
+<tr><td><span class="step-num">2</span></td><td>TX &rarr; GPIO 4 (напрямую, без делителя)</td><td>Прозвонить провод</td></tr>
+<tr><td><span class="step-num">3</span></td><td>VCC &rarr; 5V (ESP32), GND &rarr; GND (ESP32)</td><td>LED POW на TJA1050 модуле горит</td></tr>
+<tr><td><span class="step-num">4</span></td><td>CANH/CANL &rarr; OBD-II (пины 6/14) <strong>или</strong> CAN_H/CAN_L от CANable 3.0</td><td>Два провода к машине или тестовому стенду</td></tr>
+<tr><td><span class="step-num">4a</span></td><td><strong>Тестовый стенд:</strong> CANable 3.0 &rarr; USB ПК. CAN_H &rarr; CANH (TJA1050), CAN_L &rarr; CANL (TJA1050), <strong>GND &rarr; общая земля!</strong> Перемычка JP1 замкнута (120 Ом)</td><td>Синий LED на CANable моргает при фреймах</td></tr>
+<tr><td><span class="step-num">5</span></td><td>Прошить ESP32: <code>idf.py build flash</code></td><td>Прошивка без ошибок</td></tr>
+<tr><td><span class="step-num">6</span></td><td>PowerBank &rarr; USB-C (ESP32)</td><td>LED горят/мигают</td></tr>
+<tr><td><span class="step-num">7</span></td><td>Подключиться к WiFi: <code>AVTOTOR_CAN</code> / <code>mypassword</code></td><td>Подключено, IP получен</td></tr>
+<tr><td><span class="step-num">8</span></td><td>SavvyCAN &rarr; Connection &rarr; Network &rarr; <code>192.168.4.1:23</code></td><td>Фреймы пошли!</td></tr>
+</table>
+
+<!-- ====== FIRMWARE INFO ====== -->
+<h2>Информация о прошивке</h2>
+<table>
+<tr><td>Версия</td><td><code>ESP32_RET_SD v2.0 TWAI (Mar 2026)</code></td></tr>
+<tr><td>Build</td><td>420</td></tr>
+<tr><td>Платформа</td><td>ESP-IDF v5.3.1 (FreeRTOS)</td></tr>
+<tr><td>Целевой чип</td><td>ESP32-S3</td></tr>
+<tr><td>CAN интерфейс</td><td>TWAI (встроенный, без MCP2515)</td></tr>
+<tr><td>RX FIFO</td><td>32 фрейма</td></tr>
+<tr><td>Flash</td><td>4 МБ</td></tr>
+<tr><td>PSRAM</td><td>8 МБ (N16R8)</td></tr>
+<tr><td>Протокол</td><td>GVRET binary + ASCII</td></tr>
+<tr><td>Совместимость</td><td>SavvyCAN (Windows/Linux/Android)</td></tr>
+<tr><td>UART консоль</td><td>115200 8N1</td></tr>
+</table>
+
+<h3>Сборка и прошивка</h3>
+<pre><span style="color:#888"># В папке can_wifi:</span>
+idf.py set-target esp32s3
+idf.py build
+idf.py -p COM<span style="color:#ffab40">X</span> flash monitor    <span style="color:#888"># X = номер COM порта</span></pre>
+
+</div>
+</body>
+</html>

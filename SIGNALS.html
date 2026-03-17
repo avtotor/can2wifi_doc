@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сигналы — CAN→WiFi v2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+  background:#0a0a0a;
+  color:#e5e5e5;
+  padding:0;
+  font-size:14px;
+  line-height:1.55;
+  font-weight:400;
+}
+
+:root{
+  --bg:#0a0a0a;
+  --panel:#0d0d0d;
+  --panel2:#141414;
+  --line:#262626;
+  --muted:#737373;
+  --muted2:#525252;
+  --text:#e5e5e5;
+  --text2:#d4d4d4;
+  --white:#fafafa;
+
+  --g:#22c55e;
+  --g2:#16a34a;
+  --r:#ef4444;
+  --r2:#b91c1c;
+  --b:#3b82f6;
+  --b2:#1d4ed8;
+}
+
+.nav{display:flex;background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;position:sticky;top:0;z-index:100}
+.nav a{color:var(--muted);text-decoration:none;padding:14px 20px;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;position:relative}
+.nav a:hover{color:var(--white)}
+.nav a.active{color:var(--white)}
+.nav a.active::after{
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:-1px;
+  height:2px;
+  background:var(--white);
+}
+
+.content{padding:32px 24px;max-width:1200px;margin:0 auto}
+h1{font-weight:500;text-align:center;color:var(--white);margin:0 0 8px;font-size:1.15rem;letter-spacing:.10em;text-transform:uppercase}
+h2{font-weight:500;color:var(--white);margin:48px 0 16px;font-size:.98rem;letter-spacing:.12em;text-transform:uppercase;position:relative;padding-bottom:10px}
+h2::after{
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:0;
+  height:1px;
+  background:var(--line);
+}
+h3{font-weight:600;color:var(--text2);margin:24px 0 10px;font-size:.9rem;letter-spacing:.04em}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:4px;font-size:12px;letter-spacing:.03em}
+.version{text-align:center;color:var(--muted2);font-size:11px;margin-bottom:32px;letter-spacing:.06em}
+
+.diagram-wrap{
+  background:var(--panel);
+  padding:20px;
+  margin:24px 0;
+  overflow-x:auto;
+  border:1px solid var(--line);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+}
+.diagram-wrap svg{display:block}
+
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{background:var(--panel2);color:var(--text2);padding:10px 14px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line)}
+td{padding:10px 14px;border:1px solid var(--line);font-size:13px;color:var(--text2)}
+tr:hover td{background:var(--panel2)}
+
+.warn,.ok,.info,.danger{
+  position:relative;
+  background:var(--panel2);
+  border:1px solid var(--line);
+  padding:12px 16px 12px 18px;
+  margin:16px 0;
+  font-size:13px;
+  color:var(--text2);
+}
+.warn::before,.ok::before,.info::before,.danger::before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:6px;
+  background:var(--line);
+}
+/* same рамка, different цвет (цельная толстая линия) */
+.ok::before{
+  background:var(--g);
+}
+.info::before{
+  background:var(--b);
+}
+.danger::before{
+  background:var(--r);
+}
+.warn::before{
+  background:#f59e0b;
+}
+
+code{background:var(--panel2);padding:2px 6px;font-size:12px;border:1px solid var(--line);color:var(--white)}
+pre{background:var(--panel);padding:16px;font-size:12px;line-height:1.65;border:1px solid var(--line);overflow-x:auto;color:var(--text2)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px}
+.card h3{margin-top:0}
+
+.timing-grid{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  border:1px solid var(--line);
+  background:var(--panel);
+  margin:12px 0;
+}
+.timing-cell{
+  padding:12px 12px;
+  border-left:1px solid var(--line);
+  min-width:160px;
+}
+.timing-cell:first-child{border-left:none}
+.timing-k{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.timing-v{color:var(--white);font-weight:600;margin-top:6px}
+.timing-note{color:var(--muted);font-size:12px;margin-top:10px}
+
+/* Timing blocks: monochrome descending shades */
+.timing-grid .timing-cell:nth-child(1){background:#101010}
+.timing-grid .timing-cell:nth-child(2){background:#151515}
+.timing-grid .timing-cell:nth-child(3){background:#1a1a1a}
+.timing-grid .timing-cell:nth-child(4){background:#1f1f1f}
+
+.timing-grid .timing-cell:nth-child(1) .timing-k{color:#8a8a8a}
+.timing-grid .timing-cell:nth-child(2) .timing-k{color:#a3a3a3}
+.timing-grid .timing-cell:nth-child(3) .timing-k{color:#bdbdbd}
+.timing-grid .timing-cell:nth-child(4) .timing-k{color:#d4d4d4}
+
+.timing-grid .timing-cell:nth-child(1) .timing-v{color:#bdbdbd}
+.timing-grid .timing-cell:nth-child(2) .timing-v{color:#d4d4d4}
+.timing-grid .timing-cell:nth-child(3) .timing-v{color:#e5e5e5}
+.timing-grid .timing-cell:nth-child(4) .timing-v{color:#fafafa}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Главная</a>
+  <a href="wiring.html">Подключение</a>
+  <a href="signals.html" class="active">Сигналы</a>
+  <a href="can_frames.html">CAN фреймы</a>
+  <a href="freertos.html">FreeRTOS</a>
+  <a href="howto.html">HOWTO</a>
+</div>
+<div class="content">
+<h1>Сигналы</h1>
+<p class="subtitle">Уровни напряжений, тайминги TWAI, CAN шина и GVRET протокол</p>
+<p class="version">v2.0 TWAI, build 420</p>
+
+<!-- ====== CAN BUS SIGNALS ====== -->
+<h2>CAN шина &mdash; физический уровень</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="10">
+  <rect width="900" height="320" fill="#0d0d0d"/>
+
+  <!-- Y axis labels -->
+  <text x="45" y="45" fill="#737373" text-anchor="end" font-size="10">5.0V</text>
+  <text x="45" y="85" fill="#a3a3a3" text-anchor="end" font-size="10">3.5V</text>
+  <text x="45" y="135" fill="#737373" text-anchor="end" font-size="10">2.5V</text>
+  <text x="45" y="185" fill="#737373" text-anchor="end" font-size="10">1.5V</text>
+  <text x="45" y="235" fill="#737373" text-anchor="end" font-size="10">0V</text>
+
+  <!-- Grid lines -->
+  <line x1="55" y1="40" x2="870" y2="40" stroke="#262626" stroke-width="1"/>
+  <line x1="55" y1="80" x2="870" y2="80" stroke="#404040" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="55" y1="130" x2="870" y2="130" stroke="#262626" stroke-width="1"/>
+  <line x1="55" y1="180" x2="870" y2="180" stroke="#404040" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="55" y1="230" x2="870" y2="230" stroke="#262626" stroke-width="1"/>
+
+  <!-- Bit labels -->
+  <text x="130" y="280" fill="#737373" text-anchor="middle" font-size="9">рецессивный</text>
+  <text x="130" y="295" fill="#525252" text-anchor="middle" font-size="8">(idle / "1")</text>
+  <text x="280" y="280" fill="#fafafa" text-anchor="middle" font-size="9" font-weight="500">доминантный</text>
+  <text x="280" y="295" fill="#a3a3a3" text-anchor="middle" font-size="8">("0")</text>
+  <text x="430" y="280" fill="#737373" text-anchor="middle" font-size="9">рецессивный</text>
+  <text x="430" y="295" fill="#525252" text-anchor="middle" font-size="8">("1")</text>
+  <text x="580" y="280" fill="#fafafa" text-anchor="middle" font-size="9" font-weight="500">доминантный</text>
+  <text x="580" y="295" fill="#a3a3a3" text-anchor="middle" font-size="8">("0")</text>
+  <text x="730" y="280" fill="#fafafa" text-anchor="middle" font-size="9" font-weight="500">доминантный</text>
+  <text x="730" y="295" fill="#a3a3a3" text-anchor="middle" font-size="8">("0")</text>
+
+  <!-- CANH signal -->
+  <polyline points="55,130 200,130 205,80 350,80 355,130 500,130 505,80 650,80 655,80 800,80 805,130 870,130"
+    fill="none" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="875" y="85" fill="#22c55e" font-size="10" font-weight="500">CANH</text>
+
+  <!-- CANL signal -->
+  <polyline points="55,130 200,130 205,180 350,180 355,130 500,130 505,180 650,180 655,180 800,180 805,130 870,130"
+    fill="none" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="875" y="185" fill="#3b82f6" font-size="10" font-weight="500">CANL</text>
+
+  <!-- Diff voltage annotations -->
+  <line x1="285" y1="80" x2="285" y2="180" stroke="#737373" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="295" y="135" fill="#d4d4d4" font-size="9" font-weight="500">ΔV=2V</text>
+  <text x="295" y="148" fill="#737373" font-size="8">(доминантный)</text>
+
+  <line x1="135" y1="125" x2="135" y2="135" stroke="#525252" stroke-width="1"/>
+  <text x="145" y="125" fill="#737373" font-size="9">ΔV=0V</text>
+  <text x="145" y="138" fill="#525252" font-size="8">(рецессивный)</text>
+
+  <!-- Vertical bit boundaries -->
+  <line x1="200" y1="30" x2="200" y2="270" stroke="#262626" stroke-width="1"/>
+  <line x1="350" y1="30" x2="350" y2="270" stroke="#262626" stroke-width="1"/>
+  <line x1="500" y1="30" x2="500" y2="270" stroke="#262626" stroke-width="1"/>
+  <line x1="650" y1="30" x2="650" y2="270" stroke="#262626" stroke-width="1"/>
+  <line x1="800" y1="30" x2="800" y2="270" stroke="#262626" stroke-width="1"/>
+
+  <!-- Time annotation -->
+  <line x1="200" y1="260" x2="350" y2="260" stroke="#737373" stroke-width="1"/>
+  <line x1="200" y1="255" x2="200" y2="265" stroke="#737373" stroke-width="1"/>
+  <line x1="350" y1="255" x2="350" y2="265" stroke="#737373" stroke-width="1"/>
+  <text x="275" y="258" fill="#a3a3a3" text-anchor="middle" font-size="8">2 мкс (500K)</text>
+</svg>
+</div>
+
+<div class="two-col">
+<div>
+<h3>Рецессивное состояние (логическая "1")</h3>
+<table>
+<tr><td>CANH</td><td>~2.5V</td></tr>
+<tr><td>CANL</td><td>~2.5V</td></tr>
+<tr><td>&Delta;V</td><td>0V (нет тока)</td></tr>
+<tr><td>Состояние</td><td>Idle, шина свободна</td></tr>
+</table>
+</div>
+<div>
+<h3>Доминантное состояние (логический "0")</h3>
+<table>
+<tr><td>CANH</td><td>~3.5V</td></tr>
+<tr><td>CANL</td><td>~1.5V</td></tr>
+<tr><td>&Delta;V</td><td>~2V (TJA1050 создаёт ток)</td></tr>
+<tr><td>Состояние</td><td>Передача бита "0"</td></tr>
+</table>
+</div>
+</div>
+
+<div class="info"><strong>Дифференциальная передача</strong> &mdash; помехоустойчивость. Внешние наводки одинаково влияют на оба провода, а приёмник TJA1050 смотрит только на разницу (CANH - CANL). Поэтому витая пара не нужна (но желательна).</div>
+
+<h3>Тайминг одного бита @ 500 Кбит/с</h3>
+<div class="timing-grid" aria-label="Bit timing grid">
+  <div class="timing-cell">
+    <div class="timing-k">SYNC</div>
+    <div class="timing-v">1 TQ</div>
+  </div>
+  <div class="timing-cell">
+    <div class="timing-k">PROP</div>
+    <div class="timing-v">3 TQ</div>
+  </div>
+  <div class="timing-cell">
+    <div class="timing-k">PH1</div>
+    <div class="timing-v">3 TQ</div>
+  </div>
+  <div class="timing-cell">
+    <div class="timing-k">PH2</div>
+    <div class="timing-v">3 TQ</div>
+  </div>
+</div>
+<div class="timing-note">
+  TQ (Time Quantum) = <strong>200 нс</strong><br>
+  1 бит = <strong>10 TQ</strong> = <strong>2.0 мкс</strong> = <strong>500 Кбит/с</strong><br>
+  Точка семплирования: после PH1 = <strong>70%</strong> бита
+</div>
+
+<!-- ====== TJA1050 to ESP32 TWAI ====== -->
+<h2>TJA1050 &harr; ESP32 TWAI</h2>
+<table>
+<tr><th>Сигнал</th><th>Направление</th><th>Уровень</th><th>Описание</th></tr>
+<tr><td style="color:#e5e5e5">TWAI TX (GPIO 4)</td><td>ESP32 → TJA1050 TXD</td><td>0/3.3V (TTL)</td><td>ESP32 TWAI периферия формирует битовый поток, TJA1050 преобразует в дифференциальный CAN</td></tr>
+<tr><td style="color:#a3a3a3">TWAI RX (GPIO 5)</td><td>TJA1050 RXD → делитель → ESP32</td><td>5V → 3.33V</td><td>TJA1050 принимает дифференциальный CAN и выдаёт 5V TTL, делитель 1к/2к снижает до 3.33V</td></tr>
+</table>
+
+<div class="ok"><strong>Всего 2 провода</strong> &mdash; никакого SPI, никакого внешнего CAN контроллера. TWAI &mdash; это встроенная периферия ESP32-S3, работающая напрямую через GPIO. TJA1050 &mdash; автономный трансивер (не на плате HW-184), только преобразование уровней.</div>
+
+<!-- ====== TWAI SIGNALS ====== -->
+<h2>TWAI &mdash; обмен ESP32 &harr; TJA1050</h2>
+
+<div class="info"><strong>TWAI</strong> (Two-Wire Automotive Interface) &mdash; встроенный CAN контроллер ESP32-S3. Работает через два GPIO: TX и RX. Никакого протокольного оверхеда (как SPI) &mdash; TWAI периферия напрямую генерирует и принимает CAN битовый поток на скорости шины.</div>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="10">
+  <rect width="900" height="260" fill="#0d0d0d"/>
+
+  <!-- Labels -->
+  <text x="20" y="68" fill="#e5e5e5" font-size="10" font-weight="500">TX</text>
+  <text x="20" y="78" fill="#737373" font-size="9">GPIO 4</text>
+  <text x="20" y="168" fill="#a3a3a3" font-size="10" font-weight="500">RX</text>
+  <text x="20" y="178" fill="#737373" font-size="9">GPIO 5</text>
+
+  <!-- TX signal (3.3V, ESP32 output) -->
+  <polyline points="55,75 120,75 120,45 200,45 200,75 280,75 280,45 360,45 360,45 440,45 440,75 520,75 520,45 600,45 600,75 700,75"
+    fill="none" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="720" y="50" fill="#3b82f6" font-size="9" font-weight="500">3.3V</text>
+  <text x="720" y="80" fill="#a3a3a3" font-size="9">0V</text>
+  <text x="820" y="65" fill="#737373" font-size="8">ESP32 → TJA1050</text>
+
+  <!-- TX voltage labels -->
+  <line x1="55" y1="45" x2="700" y2="45" stroke="#404040" stroke-width="1" stroke-dasharray="2,4"/>
+  <line x1="55" y1="75" x2="700" y2="75" stroke="#404040" stroke-width="1" stroke-dasharray="2,4"/>
+
+  <!-- RX signal (3.33V after divider, TJA1050 output) -->
+  <polyline points="55,175 120,175 120,145 200,145 200,175 280,175 280,145 360,145 360,145 440,145 440,175 520,175 520,145 600,145 600,175 700,175"
+    fill="none" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="720" y="150" fill="#22c55e" font-size="9" font-weight="500">3.33V</text>
+  <text x="720" y="180" fill="#a3a3a3" font-size="9">0V</text>
+  <text x="820" y="162" fill="#737373" font-size="8">TJA1050 → ESP32</text>
+  <text x="820" y="175" fill="#525252" font-size="8">(через делитель)</text>
+
+  <!-- RX voltage labels -->
+  <line x1="55" y1="145" x2="700" y2="145" stroke="#404040" stroke-width="1" stroke-dasharray="2,4"/>
+  <line x1="55" y1="175" x2="700" y2="175" stroke="#404040" stroke-width="1" stroke-dasharray="2,4"/>
+
+  <!-- Bit boundary lines -->
+  <line x1="120" y1="35" x2="120" y2="195" stroke="#262626" stroke-width="1"/>
+  <line x1="200" y1="35" x2="200" y2="195" stroke="#262626" stroke-width="1"/>
+  <line x1="280" y1="35" x2="280" y2="195" stroke="#262626" stroke-width="1"/>
+  <line x1="360" y1="35" x2="360" y2="195" stroke="#262626" stroke-width="1"/>
+  <line x1="440" y1="35" x2="440" y2="195" stroke="#262626" stroke-width="1"/>
+  <line x1="520" y1="35" x2="520" y2="195" stroke="#262626" stroke-width="1"/>
+  <line x1="600" y1="35" x2="600" y2="195" stroke="#262626" stroke-width="1"/>
+
+  <!-- Bit labels -->
+  <text x="160" y="210" fill="#fafafa" text-anchor="middle" font-size="8" font-weight="500">DOM</text>
+  <text x="240" y="210" fill="#737373" text-anchor="middle" font-size="8">REC</text>
+  <text x="320" y="210" fill="#fafafa" text-anchor="middle" font-size="8" font-weight="500">DOM</text>
+  <text x="400" y="210" fill="#fafafa" text-anchor="middle" font-size="8" font-weight="500">DOM</text>
+  <text x="480" y="210" fill="#737373" text-anchor="middle" font-size="8">REC</text>
+  <text x="560" y="210" fill="#fafafa" text-anchor="middle" font-size="8" font-weight="500">DOM</text>
+  <text x="640" y="210" fill="#737373" text-anchor="middle" font-size="8">REC</text>
+
+  <!-- Time scale -->
+  <line x1="120" y1="230" x2="200" y2="230" stroke="#737373" stroke-width="1"/>
+  <line x1="120" y1="225" x2="120" y2="235" stroke="#737373" stroke-width="1"/>
+  <line x1="200" y1="225" x2="200" y2="235" stroke="#737373" stroke-width="1"/>
+  <text x="160" y="248" text-anchor="middle" fill="#a3a3a3" font-size="8">2 мкс (500 Кбит/с)</text>
+
+  <!-- Note -->
+  <text x="450" y="248" text-anchor="middle" fill="#525252" font-size="8">TX и RX синхронны — оба работают на скорости CAN шины, без протокольного оверхеда</text>
+</svg>
+</div>
+
+<div class="two-col">
+<div class="card">
+<h3 style="color:#e5e5e5">TX (ESP32 → TJA1050)</h3>
+<table>
+<tr><td>GPIO</td><td><code>GPIO 4</code></td></tr>
+<tr><td>Уровень HIGH</td><td>3.3V (рецессивный)</td></tr>
+<tr><td>Уровень LOW</td><td>0V (доминантный)</td></tr>
+<tr><td>Приёмник</td><td>TJA1050 TXD вход (V<sub>IH</sub> ~2.0V)</td></tr>
+<tr><td>Согласование</td><td>Прямое подключение, 3.3V &gt; V<sub>IH</sub></td></tr>
+</table>
+</div>
+<div class="card">
+<h3 style="color:#a3a3a3">RX (TJA1050 → ESP32)</h3>
+<table>
+<tr><td>GPIO</td><td><code>GPIO 5</code></td></tr>
+<tr><td>Выход TJA1050</td><td>0/5V TTL</td></tr>
+<tr><td>После делителя</td><td>0/3.33V (1к/2к)</td></tr>
+<tr><td>Приёмник</td><td>ESP32 GPIO 5 (макс. 3.6V)</td></tr>
+<tr><td>Согласование</td><td>Резисторный делитель 5V &times; 2k/(1k+2k) = 3.33V</td></tr>
+</table>
+</div>
+</div>
+
+<h3>Последовательность приёма CAN фрейма (TWAI)</h3>
+<pre><span style="color:#888">1.</span> CAN фрейм приходит на шину (CANH/CANL)
+<span style="color:#888">2.</span> TJA1050 преобразует дифференциальный сигнал &rarr; TTL (5V)
+<span style="color:#888">3.</span> Делитель 1к/2к снижает 5V &rarr; 3.33V
+<span style="color:#888">4.</span> TWAI периферия ESP32 принимает битовый поток через <span style="color:#a3a3a3">GPIO 5</span>
+<span style="color:#888">5.</span> TWAI аппаратно проверяет CRC, выполняет ACK, декодирует фрейм
+<span style="color:#888">6.</span> Фрейм помещается в RX очередь FreeRTOS (<span style="color:#d4d4d4">32 фрейма</span>)
+<span style="color:#888">7.</span> Задача вызывает <span style="color:#e5e5e5">twai_receive(&amp;msg, pdMS_TO_TICKS(10))</span>
+<span style="color:#888">8.</span> Полученный <code>twai_message_t</code> содержит: ID, DLC, data[8], flags</pre>
+
+<!-- ====== VOLTAGE LEVELS ====== -->
+<h2>Уровни напряжений &mdash; сводная таблица</h2>
+<table>
+<tr><th>Точка измерения</th><th>Уровень LOW</th><th>Уровень HIGH</th><th>Источник</th><th>Приёмник</th></tr>
+<tr><td style="color:#d4d4d4">CANH (рецессивный)</td><td colspan="2" style="text-align:center">~2.5V</td><td>TJA1050</td><td>TJA1050</td></tr>
+<tr><td style="color:#e5e5e5">CANH (доминантный)</td><td colspan="2" style="text-align:center;color:#e5e5e5;font-weight:600">~3.5V</td><td>TJA1050</td><td>TJA1050</td></tr>
+<tr><td style="color:#d4d4d4">CANL (рецессивный)</td><td colspan="2" style="text-align:center">~2.5V</td><td>TJA1050</td><td>TJA1050</td></tr>
+<tr><td style="color:#a3a3a3">CANL (доминантный)</td><td colspan="2" style="text-align:center;color:#a3a3a3;font-weight:600">~1.5V</td><td>TJA1050</td><td>TJA1050</td></tr>
+<tr><td style="color:#e5e5e5">TWAI TX (GPIO 4)</td><td>0V</td><td style="color:#a3a3a3">3.3V</td><td>ESP32 TWAI</td><td>TJA1050 TXD (V<sub>IH</sub> ~2.0V)</td></tr>
+<tr><td style="color:#d4d4d4">TWAI RX (TJA1050 выход)</td><td>0V</td><td style="color:#e5e5e5;font-weight:600">5.0V</td><td>TJA1050 RXD</td><td>Делитель 1к/2к</td></tr>
+<tr><td style="color:#a3a3a3">TWAI RX после делителя (GPIO 5)</td><td>0V</td><td style="color:#d4d4d4;font-weight:600">3.33V</td><td>Делитель</td><td>ESP32 GPIO 5 (макс. 3.6V)</td></tr>
+<tr><td style="color:#d4d4d4">VCC (TJA1050)</td><td colspan="2" style="text-align:center;color:#a3a3a3">5.0V постоянно</td><td>ESP32 пин 5V</td><td>TJA1050</td></tr>
+<tr><td style="color:#a3a3a3">3V3 (ESP32)</td><td colspan="2" style="text-align:center;color:#a3a3a3">3.3V постоянно</td><td>AMS1117</td><td>ESP32-S3 чип</td></tr>
+</table>
+
+<div class="ok"><strong>TX: 3.3V &rarr; 5V вход TJA1050</strong> &mdash; работает напрямую. TJA1050 имеет V<sub>IH</sub> = 2.0V (типичный CMOS порог). Сигнал 3.3V от ESP32 уверенно распознаётся как HIGH. Никаких преобразователей уровня не нужно.</div>
+
+<div class="danger"><strong>RX: 5V &rarr; 3.3V (делитель обязателен!)</strong> &mdash; TJA1050 выдаёт 5V TTL на выходе RXD. ESP32-S3 GPIO допускает максимум 3.6V. Резисторный делитель 1к (верхний) + 2к (нижний) снижает 5V до 5 &times; 2/(1+2) = 3.33V &mdash; безопасно для ESP32.</div>
+
+<!-- ====== TWAI STATUS AND ALERTS ====== -->
+<h2>TWAI статус и алерты</h2>
+
+<h3>twai_get_status_info() &mdash; структура twai_status_info_t</h3>
+<table>
+<tr><th>Поле</th><th>Тип</th><th>Описание</th></tr>
+<tr><td style="color:#e5e5e5;font-weight:600">state</td><td><code>twai_state_t</code></td><td>Текущее состояние: TWAI_STATE_STOPPED, TWAI_STATE_RUNNING, TWAI_STATE_BUS_OFF, TWAI_STATE_RECOVERING</td></tr>
+<tr><td>msgs_to_tx</td><td><code>uint32_t</code></td><td>Количество сообщений в TX очереди (ожидают отправки)</td></tr>
+<tr><td>msgs_to_rx</td><td><code>uint32_t</code></td><td>Количество сообщений в RX очереди (ожидают чтения)</td></tr>
+<tr><td style="color:#d4d4d4">tx_error_counter</td><td><code>uint32_t</code></td><td>Счётчик ошибок передачи (TEC). При 256 — bus-off</td></tr>
+<tr><td style="color:#d4d4d4">rx_error_counter</td><td><code>uint32_t</code></td><td>Счётчик ошибок приёма (REC). При 128 — error passive</td></tr>
+<tr><td>arb_lost_count</td><td><code>uint32_t</code></td><td>Количество потерь арбитража</td></tr>
+<tr><td>bus_error_count</td><td><code>uint32_t</code></td><td>Количество ошибок на шине (CRC, bit, stuff, form, ACK)</td></tr>
+</table>
+
+<h3>TWAI алерты (twai_reconfigure_alerts)</h3>
+<table>
+<tr><th>Алерт</th><th>Описание</th><th>Использование</th></tr>
+<tr><td style="color:#e5e5e5;font-weight:600"><code>TWAI_ALERT_RX_DATA</code></td><td>Получен новый фрейм в RX очередь</td><td>Основной триггер для чтения фреймов</td></tr>
+<tr><td style="color:#a3a3a3"><code>TWAI_ALERT_TX_SUCCESS</code></td><td>Фрейм успешно отправлен</td><td>Подтверждение отправки в CAN</td></tr>
+<tr><td><code>TWAI_ALERT_TX_FAILED</code></td><td>Ошибка отправки фрейма</td><td>Проблемы с шиной или арбитражем</td></tr>
+<tr><td style="color:#d4d4d4"><code>TWAI_ALERT_ERR_PASS</code></td><td>Переход в Error Passive (REC/TEC ≥ 128)</td><td>Предупреждение об ухудшении связи</td></tr>
+<tr><td style="color:#a3a3a3"><code>TWAI_ALERT_BUS_OFF</code></td><td>Переход в Bus-Off (TEC ≥ 256)</td><td>Критическая ошибка, нужен recovery</td></tr>
+<tr><td><code>TWAI_ALERT_BUS_RECOVERED</code></td><td>Восстановление после Bus-Off</td><td>После twai_initiate_recovery()</td></tr>
+<tr><td><code>TWAI_ALERT_RX_QUEUE_FULL</code></td><td>RX очередь переполнена</td><td>Потеря фреймов, нужно читать быстрее</td></tr>
+<tr><td><code>TWAI_ALERT_ABOVE_ERR_WARN</code></td><td>Счётчик ошибок &gt; 96</td><td>Раннее предупреждение</td></tr>
+<tr><td><code>TWAI_ALERT_ARB_LOST</code></td><td>Потеря арбитража при передаче</td><td>Нормально при высокой загрузке</td></tr>
+</table>
+
+<h3>Режимы работы TWAI</h3>
+<table>
+<tr><th>Режим</th><th>Константа</th><th>Описание</th><th>Использование</th></tr>
+<tr><td style="color:#e5e5e5;font-weight:600">Normal</td><td><code>TWAI_MODE_NORMAL</code></td><td>Полный режим TX + RX</td><td><strong>Основной</strong> — приём и передача фреймов, участие в арбитраже и ACK</td></tr>
+<tr><td>No Ack</td><td><code>TWAI_MODE_NO_ACK</code></td><td>TX + RX без подтверждений</td><td>Тестирование без подключенной CAN шины (self-test)</td></tr>
+<tr><td>Listen Only</td><td><code>TWAI_MODE_LISTEN_ONLY</code></td><td>Только приём, без TX и ACK</td><td>Пассивный мониторинг &mdash; не влияет на шину</td></tr>
+</table>
+
+<!-- ====== GVRET PROTOCOL ====== -->
+<h2>GVRET протокол (WiFi &harr; SavvyCAN)</h2>
+
+<div class="info"><strong>GVRET</strong> (Generalized Vehicle Reverse Engineering Tool) &mdash; бинарный протокол для передачи CAN фреймов по TCP. Используется SavvyCAN для связи с адаптерами. Передаётся по Telnet порту 23.</div>
+
+<h3>Исходящий фрейм (ESP32 &rarr; SavvyCAN)</h3>
+<pre>Байт   Описание                  Пример
+────────────────────────────────────────────
+  0    <span style="color:#a3a3a3">0xF1</span> (заголовок GVRET)     F1
+  1    <span style="color:#737373">0x00</span> (команда: CAN frame)   00
+ 2-5   <span style="color:#a3a3a3">timestamp</span> (32-бит LE, мкс)  40 42 0F 00  (= 1000000 мкс = 1 сек)
+ 6-9   <span style="color:#d4d4d4">CAN ID</span> (32-бит LE)          E0 07 00 00  (= 0x7E0)
+       <span style="color:#525252">бит 31 = extended ID</span>
+ 10    <span style="color:#737373">DLC | (bus &lt;&lt; 4)</span>            08  (8 байт, шина 0)
+11-18  <span style="color:#a3a3a3">DATA</span> (до 8 байт)            02 01 0C 00 00 00 00 00</pre>
+
+<h3>Входящий фрейм (SavvyCAN &rarr; ESP32 для отправки в CAN)</h3>
+<pre>Из GVRET state machine, команда BUILD_CAN_FRAME (0x00):
+
+Байт   Описание
+────────────────────────────────
+ 0-3   <span style="color:#d4d4d4">CAN ID</span> (32-бит LE, бит 31 = extended)
+  4    <span style="color:#a3a3a3">Номер шины</span> (0 или 1)
+  5    <span style="color:#737373">DLC</span> (длина данных, 0-8)
+ 6+    <span style="color:#737373">DATA</span> (DLC байт)</pre>
+
+<h3>Команды GVRET</h3>
+<table>
+<tr><th>Код</th><th>Имя</th><th>Описание</th></tr>
+<tr><td style="color:#e5e5e5;font-weight:600"><code>0x00</code></td><td>BUILD_CAN_FRAME</td><td>Отправить фрейм в CAN шину</td></tr>
+<tr><td><code>0x01</code></td><td>TIME_SYNC</td><td>Синхронизация времени</td></tr>
+<tr><td><code>0x05</code></td><td>SETUP_CANBUS</td><td>Настройка скорости и режима CAN</td></tr>
+<tr><td><code>0x06</code></td><td>GET_CANBUS_PARAMS</td><td>Запрос параметров CAN</td></tr>
+<tr><td><code>0x07</code></td><td>GET_DEV_INFO</td><td>Информация об устройстве</td></tr>
+<tr><td><code>0x09</code></td><td>KEEPALIVE</td><td>Поддержание соединения</td></tr>
+<tr><td><code>0x0B</code></td><td>ECHO_CAN_FRAME</td><td>Эхо фрейма (только отображение)</td></tr>
+<tr><td><code>0x0C</code></td><td>GET_NUM_BUSES</td><td>Количество CAN шин (ответ: 1)</td></tr>
+</table>
+
+<h3>Инициализация связи</h3>
+<pre><span style="color:#525252">// Последовательность при подключении SavvyCAN:</span>
+1. SavvyCAN подключается к TCP:23
+2. Отправляет <span style="color:#a3a3a3">0xE7</span> → включает binary mode
+3. Отправляет <span style="color:#a3a3a3">0xF1</span> + <span style="color:#737373">0x07</span> (GET_DEV_INFO) → ESP32 отвечает версией
+4. Отправляет <span style="color:#a3a3a3">0xF1</span> + <span style="color:#737373">0x0C</span> (GET_NUM_BUSES) → ответ: 1 шина
+5. Отправляет <span style="color:#a3a3a3">0xF1</span> + <span style="color:#737373">0x06</span> (GET_CANBUS_PARAMS) → скорость, режим
+6. Фреймы начинают приходить автоматически</pre>
+
+<!-- ====== DATA FLOW ====== -->
+<h2>Полный путь данных (тайминг)</h2>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace" font-size="10">
+  <rect width="900" height="200" fill="#0d0d0d"/>
+
+  <!-- Boxes - no rx, 1px stroke -->
+  <rect x="20" y="70" width="110" height="50" fill="rgba(34,197,94,.10)" stroke="#22c55e" stroke-width="1"/>
+  <text x="75" y="100" text-anchor="middle" fill="#e5e5e5" font-size="9" font-weight="500">CAN шина</text>
+
+  <rect x="175" y="70" width="110" height="50" fill="rgba(59,130,246,.10)" stroke="#3b82f6" stroke-width="1"/>
+  <text x="230" y="92" text-anchor="middle" fill="#e5e5e5" font-size="9" font-weight="500">TJA1050</text>
+  <text x="230" y="108" text-anchor="middle" fill="#737373" font-size="8">diff → TTL</text>
+
+  <rect x="330" y="70" width="130" height="50" fill="rgba(34,197,94,.06)" stroke="#22c55e" stroke-width="1"/>
+  <text x="395" y="92" text-anchor="middle" fill="#e5e5e5" font-size="9" font-weight="500">ESP32 TWAI</text>
+  <text x="395" y="108" text-anchor="middle" fill="#a3a3a3" font-size="8">встроенный CAN</text>
+
+  <rect x="505" y="70" width="110" height="50" fill="rgba(163,163,163,.06)" stroke="#a3a3a3" stroke-width="1"/>
+  <text x="560" y="92" text-anchor="middle" fill="#e5e5e5" font-size="9" font-weight="500">GVRET</text>
+  <text x="560" y="108" text-anchor="middle" fill="#737373" font-size="8">serialize</text>
+
+  <rect x="660" y="70" width="110" height="50" fill="rgba(239,68,68,.10)" stroke="#ef4444" stroke-width="1"/>
+  <text x="715" y="92" text-anchor="middle" fill="#e5e5e5" font-size="9" font-weight="500">WiFi TCP</text>
+  <text x="715" y="108" text-anchor="middle" fill="#737373" font-size="8">:23 flush</text>
+
+  <!-- Arrows - keep neutral (как было), выделяем только блоки -->
+  <line x1="130" y1="95" x2="170" y2="95" stroke="#525252" stroke-width="1"/>
+  <polygon points="170,91 170,99 178,95" fill="#525252"/>
+
+  <line x1="285" y1="95" x2="325" y2="95" stroke="#525252" stroke-width="1"/>
+  <polygon points="325,91 325,99 333,95" fill="#525252"/>
+
+  <line x1="460" y1="95" x2="500" y2="95" stroke="#525252" stroke-width="1"/>
+  <polygon points="500,91 500,99 508,95" fill="#525252"/>
+
+  <line x1="615" y1="95" x2="655" y2="95" stroke="#525252" stroke-width="1"/>
+  <polygon points="655,91 655,99 663,95" fill="#525252"/>
+
+  <!-- Timing -->
+  <text x="75" y="145" text-anchor="middle" fill="#737373" font-size="8">~128 мкс</text>
+  <text x="75" y="158" text-anchor="middle" fill="#525252" font-size="7">(1 фрейм)</text>
+  <text x="230" y="145" text-anchor="middle" fill="#737373" font-size="8">&lt;1 мкс</text>
+  <text x="395" y="145" text-anchor="middle" fill="#a3a3a3" font-size="8">~5 мкс</text>
+  <text x="395" y="158" text-anchor="middle" fill="#525252" font-size="7">(twai_receive)</text>
+  <text x="560" y="145" text-anchor="middle" fill="#a3a3a3" font-size="8">~5 мкс</text>
+  <text x="715" y="145" text-anchor="middle" fill="#737373" font-size="8">~20 мс</text>
+  <text x="715" y="158" text-anchor="middle" fill="#525252" font-size="7">(flush буфера)</text>
+
+  <!-- Total -->
+  <text x="450" y="185" text-anchor="middle" fill="#a3a3a3" font-size="10" font-weight="500">Общая задержка: ~20 мс (определяется WiFi flush интервалом)</text>
+</svg>
+</div>
+
+<h3>Буферизация</h3>
+<table>
+<tr><th>Буфер</th><th>Размер</th><th>Описание</th></tr>
+<tr><td style="color:#e5e5e5">TWAI RX FIFO</td><td style="color:#a3a3a3;font-weight:600">32 фрейма</td><td>FreeRTOS очередь (rx_queue_len=32). При переполнении — фрейм теряется и срабатывает алерт TWAI_ALERT_RX_QUEUE_FULL</td></tr>
+<tr><td>Serial buffer</td><td>1024 байт</td><td>Промежуточный буфер GVRET данных</td></tr>
+<tr><td>WiFi TX buffer</td><td>2048 байт</td><td>Буфер TCP отправки, flush каждые 20 мс</td></tr>
+</table>
+
+<div class="warn"><strong>Потеря фреймов</strong>: при очень высокой загрузке шины (&gt;3800 фр/с @500K) 32-фреймовый TWAI RX FIFO может переполниться. Однако это значительно лучше, чем внешние контроллеры с 2 буферами. При переполнении срабатывает <code>TWAI_ALERT_RX_QUEUE_FULL</code>. Решение: увеличить приоритет задачи чтения или использовать <code>TWAI_MODE_LISTEN_ONLY</code> для снижения нагрузки.</div>
+
+</div>
+</body>
+</html>
